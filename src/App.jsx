@@ -18,6 +18,7 @@ import Tickets from "./components/Tickets";
 import MyTickets from "./components/MyTickets";
 import TicketDetail from "./components/TicketDetails";
 import Navbar from "./pages/Navbar";
+import PaymentForm from "./components/PaymentForm";
 
 const App = () => {
   return (
@@ -41,6 +42,7 @@ const App = () => {
           <Route path="/tickets/attraction/:placeId" element={<Tickets />} />
           <Route path="/mytickets" element={<MyTickets />} />
          <Route path="/ticket-details/:id" element={<TicketDetail />} />
+         <Route path="/payment/:id" element={<PaymentForm />} />
         </Routes>
       </AuthProvider>
     </Router>

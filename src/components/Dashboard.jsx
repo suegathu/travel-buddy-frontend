@@ -105,20 +105,21 @@ const Dashboard = () => {
           <h1 className="text-xl md:text-2xl font-bold mb-2 md:mb-4">Discover Places</h1>
           <p className="mb-4 md:mb-6 text-sm md:text-base">Find hotels, restaurants, and attractions near you</p>
 
-          {/* Places Component */}
+          {/* Places Component - Pass a gridCols prop to control the grid layout */}
           <Place 
             setPlaces={setPlaces}
             setFilteredPlaces={setFilteredPlaces} 
             hoveredPlaceId={hoveredPlaceId}
             setHoveredPlaceId={setHoveredPlaceId}
             userPosition={userPosition}
+            gridCols={2} // Add this prop to control grid columns
           />
 
           {/* Nearby Suggestions (only show if we're not filtering) */}
           {filteredPlaces.length === places.length && nearbySuggestions.length > 0 && (
             <div className="mt-6 md:mt-8">
               <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Suggested Nearby Places</h3>
-              <div className="grid grid-cols-1 gap-3 md:gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {nearbySuggestions.map((suggestion) => (
                   <div
                     key={suggestion.id}

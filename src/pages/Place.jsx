@@ -152,8 +152,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
         {selectedType !== 'all' && <span> in <strong>{selectedType}s</strong></span>}
       </div>
 
-      {/* Places List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      {/* Places List - Modified to display 2 columns instead of 3 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-6">
         {localFilteredPlaces.length > 0 ? (
           localFilteredPlaces.map((place) => (
             <div

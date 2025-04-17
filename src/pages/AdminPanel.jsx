@@ -2,6 +2,7 @@ import { useState } from "react";
 import AdminUsers from "../components/AdminUsers";
 import AdminPlaces from "../components/AdminPlaces";
 import AdminBookings from "../components/AdminBookings";
+import AdminPayments from "../components/AdminPayment";
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState("users");
@@ -15,7 +16,7 @@ const AdminPanel = () => {
       case "bookings":
         return <AdminBookings />;
       case "payments":
-        return <div>Payments Module</div>; // Placeholder for ManagePayments
+        return <AdminPayments />;
       default:
         return <AdminUsers />;
     }
