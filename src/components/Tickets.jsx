@@ -1,50 +1,58 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
-import { useParams } from 'react-router-dom';
 
 const Tickets = () => {
-  const { authTokens } = useContext(AuthContext); // Access authTokens from context
+  const { authTokens } = useContext(AuthContext);
+  const { placeId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { selectedPlace, selectedPrice } = location.state || {} // Price passed from Card
+  const [basePrice, setBasePrice] = useState(Number(selectedPrice) || 0);
   const [formData, setFormData] = useState({
     visitDate: '',
     visitTime: '',
     guests: 1,
-    totalPrice: 0,
+    totalPrice: (Number(selectedPrice) || 0).toFixed(2),
     paymentMethod: 'mpesa',
   });
+  
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { placeId } = useParams();
-  const navigate = useNavigate(); // Initialize useNavigate
-
-  // Function to generate a random price based on the number of guests
-  const generateRandomPrice = (guests) => {
-    const basePrice = 10; // Base price for 1 guest
-    const maxPriceVariation = 30; // Max price variation per guest
-    return (basePrice + Math.floor(Math.random() * maxPriceVariation) * guests).toFixed(2);
-  };
 
   useEffect(() => {
-    if (formData.guests) {
-      const newPrice = generateRandomPrice(Number(formData.guests));
-      setFormData((prevData) => ({ ...prevData, totalPrice: newPrice }));
+    if (!selectedPrice) {
+      setError('Price information is missing. Please select a valid ticket.');
     }
-  }, [formData.guests]);
+  }, [selectedPrice]);
+  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
 
-    // If the number of guests changes, recalculate the price
     if (name === 'guests') {
-      const newPrice = generateRandomPrice(Number(value));
-      setFormData((prevData) => ({ ...prevData, totalPrice: newPrice }));
+      const guests = Math.max(1, Number(value)); // Ensure at least 1 guest
+      const newTotal = guests * basePrice;
+      setFormData((prevData) => ({
+        ...prevData,
+        guests,
+        totalPrice: newTotal.toFixed(2),
+      }));
+    } else {
+      setFormData((prevData) => ({
+        ...prevData,
+        [name]: value,
+      }));
     }
   };
 
   const validateForm = () => {
-    if (!formData.visitDate || !formData.visitTime || !formData.guests || !formData.totalPrice) {
+    if (!formData.visitDate || !formData.visitTime || !formData.guests || formData.totalPrice <= 0) {
       setError('Please fill in all required fields.');
+      return false;
+    }
+    if (!basePrice) {
+      setError('Price is missing. Cannot proceed with booking.');
       return false;
     }
     setError('');
@@ -53,22 +61,21 @@ const Tickets = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     if (!validateForm()) return;
-  
+
     setIsSubmitting(true);
-  
+
     const token = authTokens?.access;
 
-    // Send the form data with both date and time separately
     const dataToSend = {
-      booking_date: formData.visitDate,  // Send the visit date
-      visit_time: formData.visitTime,    // Send the visit time
+      booking_date: formData.visitDate,
+      visit_time: formData.visitTime,
       total_price: parseFloat(formData.totalPrice),
       payment_method: formData.paymentMethod,
       place: placeId,
     };
-  
+
     try {
       const response = await fetch('http://localhost:8000/api/bookings/', {
         method: 'POST',
@@ -78,17 +85,28 @@ const Tickets = () => {
         },
         body: JSON.stringify(dataToSend),
       });
-  
+
       if (response.ok) {
-        alert('Booking Successful!');
-        navigate('/mytickets');  
+        const booking = await response.json();
+        // Pass the calculated total price to the payment form
+        navigate(`/payment/${booking.id}`, {
+          state: {
+            selectedPlace,
+            selectedPrice: formData.totalPrice, // Pass the calculated total price
+            bookingDetails: {
+              visitDate: formData.visitDate,
+              visitTime: formData.visitTime,
+              guests: formData.guests
+            }
+          }
+        });
       } else {
         const errorData = await response.json();
         alert(`Booking failed: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('An error occurred');
+      alert('An error occurred.');
     } finally {
       setIsSubmitting(false);
     }
@@ -146,14 +164,14 @@ const Tickets = () => {
 
         <div className="mb-4">
           <label htmlFor="totalPrice" className="block text-sm font-medium text-gray-700">
-            Total Price (Generated)
+            Total Price
           </label>
           <input
-            type="number"
+            type="text"
             name="totalPrice"
-            value={formData.totalPrice}
+            value={`$${formData.totalPrice}`}
             disabled
-            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed shadow-sm focus:outline-none"
           />
         </div>
 
@@ -175,7 +193,7 @@ const Tickets = () => {
 
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !!error}
           className="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           {isSubmitting ? 'Booking...' : 'Book Ticket'}

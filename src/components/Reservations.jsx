@@ -73,13 +73,14 @@ const Reservations = () => {
           check_in: formData.booking_date,
           check_out: formData.booking_date,
           visit_time: formData.visitTime,
-          meal_choices: formData.mealChoices
+          meal_choices: formData.mealChoices,
         }),
       });
   
       if (response.ok) {
+        const data = await response.json(); // ✅ get the created booking data
         alert('Reservation Successful!');
-        navigate('/mytickets'); 
+        navigate(`/payment/${data.id}`);    // ✅ use the ID from the response
       } else {
         const errorData = await response.json();
         if (errorData.non_field_errors) {
@@ -94,7 +95,7 @@ const Reservations = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  };  
   
 
   // Display a message if no place is selected

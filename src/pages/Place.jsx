@@ -3,7 +3,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 
-const DEFAULT_RESTAURANT_IMAGE = 'https://via.placeholder.com/300/FFC107/000000?Text=Restaurant';
+// Define a better default image URL - using a reliable placeholder
+const DEFAULT_PLACE_IMAGE = 'https://placehold.co/300x200?text=No+Image';
 
 const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId, onDataFetched, userPosition }) => {
   const [localPlaces, setLocalPlaces] = useState([]);
@@ -30,7 +31,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       }
 
       try {
-        const response = await axios.get('/api/places/', getAuthHeaders());
+        // Add refresh=true to ensure all places have prices and images
+        const response = await axios.get('/api/places/?refresh=true', getAuthHeaders());
         const data = Array.isArray(response.data) ? response.data : response.data.results || [];
         
         // Add mock coordinates for testing if they don't exist
@@ -96,8 +98,12 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     };
 
     navigate(routeMap[place.place_type], {
-      ...(place.place_type === 'restaurant' && { state: { selectedPlace: place } }),
+      state: {
+        selectedPlace: place, // always pass full place object
+        selectedPrice: place.price, // pass price separately too
+      },
     });
+    
   };
 
   const handleMouseEnter = (id) => {
@@ -106,6 +112,14 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
 
   const handleMouseLeave = () => {
     if (setHoveredPlaceId) setHoveredPlaceId(null);
+  };
+
+  // Helper function to check if an image URL is valid
+  const getValidImageUrl = (imageUrl) => {
+    if (!imageUrl || imageUrl.includes('undefined') || imageUrl === '') {
+      return DEFAULT_PLACE_IMAGE;
+    }
+    return imageUrl;
   };
 
   if (loading) return <div className="text-center mt-10">Loading places...</div>;
@@ -165,9 +179,13 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
               onMouseLeave={handleMouseLeave}
             >
               <img
-                src={place.image_url || DEFAULT_RESTAURANT_IMAGE}
+                src={getValidImageUrl(place.image_url)}
                 alt={place.name}
                 className="h-40 w-full object-cover rounded-xl mb-4"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = DEFAULT_PLACE_IMAGE;
+                }}
               />
               <div className="flex-grow">
                 <h3 className="text-lg font-semibold mb-1">{place.name}</h3>
@@ -188,7 +206,9 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                     {place.place_type?.charAt(0).toUpperCase() + place.place_type?.slice(1)}
                   </span>
                 </div>
-                <p className="text-blue-600 font-semibold mb-3">${place.price}</p>
+                <p className="text-blue-600 font-semibold mb-3">
+                  ${typeof place.price === 'number' ? place.price.toFixed(2) : place.price || '0.00'}
+                </p>
               </div>
               <button
                 onClick={() => handleActionClick(place)}

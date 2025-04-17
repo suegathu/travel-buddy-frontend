@@ -25,3 +25,4 @@ firebase.js
 *.njsproj
 *.sln
 *.sw?
+public

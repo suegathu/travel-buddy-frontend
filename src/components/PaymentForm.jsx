@@ -1,9 +1,17 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 
-const PaymentForm = ({ placeId }) => {
+const PaymentForm = () => {
+  const { authTokens, user } = useContext(AuthContext);
+  const { placeId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Get the selectedPrice which is now the calculated total price from Tickets component
+  const { selectedPlace, selectedPrice, bookingDetails } = location.state || {};
+
   const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('');
@@ -13,44 +21,57 @@ const PaymentForm = ({ placeId }) => {
   const [reference, setReference] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('');
   
-  // Card details state
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [cardName, setCardName] = useState('');
 
-  const { authTokens, user } = useContext(AuthContext);
-  const navigate = useNavigate();
-  
-  // Set email from user context if available
   useEffect(() => {
     if (user?.email) {
       setEmail(user.email);
     }
   }, [user]);
 
-  // Generate unique reference when component mounts
+  useEffect(() => {
+    // Use the calculated total price from the Tickets component
+    if (selectedPrice) {
+      setAmount(selectedPrice);
+    }
+  }, [selectedPrice]);
+
   useEffect(() => {
     const generateReference = () => {
       const date = new Date().getTime();
       const randomStr = Math.random().toString(36).substring(2, 8);
       return `pay-${date}-${randomStr}`;
     };
-    
     setReference(generateReference());
-    
-    // Load Paystack JS
+
     const script = document.createElement('script');
     script.src = 'https://js.paystack.co/v1/inline.js';
     script.async = true;
     document.body.appendChild(script);
-    
+
     return () => {
       document.body.removeChild(script);
     };
   }, []);
 
-  // Format card expiry as MM/YY
+  // Display booking details if available
+  const renderBookingDetails = () => {
+    if (bookingDetails) {
+      return (
+        <div className="mb-4 p-3 bg-gray-50 rounded border border-gray-200">
+          <h3 className="font-medium text-gray-700 mb-2">Booking Details</h3>
+          <p className="text-sm text-gray-600">Date: {bookingDetails.visitDate}</p>
+          <p className="text-sm text-gray-600">Time: {bookingDetails.visitTime}</p>
+          <p className="text-sm text-gray-600">Guests: {bookingDetails.guests}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const handleExpiryChange = (e) => {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length > 2) {
@@ -58,25 +79,22 @@ const PaymentForm = ({ placeId }) => {
     }
     setCardExpiry(value);
   };
-  
-  // Format card number with spaces
+
   const handleCardNumberChange = (e) => {
     const value = e.target.value.replace(/\s+/g, '').replace(/\D/g, '');
     const parts = [];
-    
     for (let i = 0; i < value.length; i += 4) {
       parts.push(value.slice(i, i + 4));
     }
-    
     setCardNumber(parts.join(' ').trim());
   };
 
   const initiatePaystackPayment = () => {
     if (window.PaystackPop) {
       const handler = window.PaystackPop.setup({
-        key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_your_test_key_here', // Replace with your public key
+        key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_3f5891c7c1997586f49bd3a16a7ea1a5951a8979',
         email: email,
-        amount: parseFloat(amount) * 100, // Amount in kobo
+        amount: parseFloat(amount) * 100,
         ref: reference,
         currency: "KES",
         metadata: {
@@ -90,7 +108,6 @@ const PaymentForm = ({ placeId }) => {
           ]
         },
         callback: function(response) {
-          // Verify the transaction on your backend
           verifyPayment(response.reference);
         },
         onClose: function() {
@@ -112,7 +129,6 @@ const PaymentForm = ({ placeId }) => {
         'Content-Type': 'application/json',
       };
       
-      // First, initiate payment on backend
       const initRes = await axios.post('/api/paystack/initialize/', {
         email,
         amount,
@@ -121,7 +137,6 @@ const PaymentForm = ({ placeId }) => {
       }, { headers });
       
       if (initRes.status === 200) {
-        // Now use Paystack inline
         initiatePaystackPayment();
       } else {
         setStatus('Could not initiate payment. Please try again.');
@@ -133,7 +148,7 @@ const PaymentForm = ({ placeId }) => {
       setIsLoading(false);
     }
   };
-  
+
   const processMpesaPayment = async () => {
     try {
       const headers = {
@@ -162,7 +177,7 @@ const PaymentForm = ({ placeId }) => {
       setIsLoading(false);
     }
   };
-  
+
   const verifyPayment = async (ref) => {
     try {
       const headers = {
@@ -192,7 +207,6 @@ const PaymentForm = ({ placeId }) => {
     }
   };
 
-  // Start polling for status updates
   const startPolling = (ref) => {
     const pollInterval = setInterval(async () => {
       try {
@@ -221,7 +235,6 @@ const PaymentForm = ({ placeId }) => {
       }
     }, 5000);
 
-    // Stop polling after 2 minutes
     setTimeout(() => {
       clearInterval(pollInterval);
       setIsLoading(false);
@@ -236,7 +249,6 @@ const PaymentForm = ({ placeId }) => {
     setIsLoading(true);
     setStatus('Processing payment...');
 
-    // Validation
     if (!amount || !email) {
       setStatus('Please provide email and amount.');
       setIsLoading(false);
@@ -249,13 +261,11 @@ const PaymentForm = ({ placeId }) => {
       return;
     }
     
-    // Process based on payment method
     if (method === 'mpesa') {
       processMpesaPayment();
     } else if (method === 'card') {
       processDirectCardPayment();
     } else {
-      // Other payment methods if needed
       setStatus('This payment method is not yet implemented.');
       setIsLoading(false);
     }
@@ -264,6 +274,10 @@ const PaymentForm = ({ placeId }) => {
   return (
     <div className="max-w-md mx-auto bg-white p-6 rounded shadow">
       <h2 className="text-xl font-bold mb-4">Make Payment</h2>
+      
+      {/* Display booking details */}
+      {renderBookingDetails()}
+      
       <form onSubmit={handlePayment} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -283,9 +297,8 @@ const PaymentForm = ({ placeId }) => {
             type="number"
             placeholder="Amount"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full border p-2 rounded"
-            required
+            readOnly
+            className="w-full border p-2 rounded bg-gray-100 cursor-not-allowed"
           />
         </div>
         
@@ -318,9 +331,7 @@ const PaymentForm = ({ placeId }) => {
         
         <button
           type="submit"
-          className={`w-full p-2 rounded text-white ${
-            isLoading ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'
-          }`}
+          className={`w-full p-2 rounded text-white ${isLoading ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}
           disabled={isLoading}
         >
           {isLoading ? 'Processing...' : 'Pay Now'}
@@ -336,7 +347,7 @@ const PaymentForm = ({ placeId }) => {
           </div>
         )}
       </form>
-      
+
       <div className="mt-4 text-center">
         <img 
           src="/api/placeholder/200/40" 
@@ -347,8 +358,8 @@ const PaymentForm = ({ placeId }) => {
           Payments are securely processed by Paystack
         </p>
       </div>
-      
-      {process.env.NODE_ENV !== 'production' && (
+
+      {import.meta.env.MODE !== 'production' && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-2 mt-4 text-xs">
           Test Mode Active - For test cards, use:
           <ul className="list-disc ml-4 mt-1">
