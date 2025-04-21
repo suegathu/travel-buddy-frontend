@@ -8,6 +8,7 @@ const Login = () => {
   const [userType, setUserType] = useState("user");
   const [loginStatus, setLoginStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const { loginUser } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -15,10 +16,11 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoginStatus("Logging in...");
+    setIsLoading(true);
     
     try {
       // First handle the authentication
-      const result = await loginUser(username, password);
+      const result = await loginUser(username, password, userType);
       
       if (result) {
         setLoginStatus("Login successful!");
@@ -34,7 +36,9 @@ const Login = () => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setLoginStatus(`Login error: ${error.message}`);
+      setLoginStatus(`Login error: ${error.message || "Unknown error"}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -133,9 +137,10 @@ const Login = () => {
             
             <button 
               type="submit" 
-              className="bg-cyan-500 text-white px-4 py-3 w-full hover:bg-cyan-600 rounded transition-colors font-medium"
+              className="bg-cyan-500 text-white px-4 py-3 w-full hover:bg-cyan-600 rounded transition-colors font-medium disabled:bg-cyan-300"
+              disabled={isLoading}
             >
-              Login
+              {isLoading ? "Logging in..." : "Login"}
             </button>
             
             <div className="text-center mt-4">
