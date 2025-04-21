@@ -90,6 +90,7 @@ const PaymentForm = () => {
   };
 
   const initiatePaystackPayment = () => {
+    console.log("PaystackPop available:", !!window.PaystackPop);
     if (window.PaystackPop) {
       const handler = window.PaystackPop.setup({
         key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_3f5891c7c1997586f49bd3a16a7ea1a5951a8979',
@@ -245,6 +246,7 @@ const PaymentForm = () => {
   };
 
   const handlePayment = async (e) => {
+    console.log(e);
     e.preventDefault();
     setIsLoading(true);
     setStatus('Processing payment...');
@@ -317,15 +319,15 @@ const PaymentForm = () => {
         {method === 'mpesa' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-            <input
-              type="tel"
-              placeholder="Phone number (e.g., 254XXXXXXXXX)"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full border p-2 rounded"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">Format: 254XXXXXXXXX (without +)</p>
+           <input
+            type="tel"
+            placeholder="Phone number (e.g., 2547XXXXXXXX)"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full border p-2 rounded"
+          />
+
+            <p className="text-xs text-gray-500 mt-1">Format: 254XXXXXXXXX (with +)</p>
           </div>
         )}
         
@@ -335,6 +337,7 @@ const PaymentForm = () => {
           disabled={isLoading}
         >
           {isLoading ? 'Processing...' : 'Pay Now'}
+          
         </button>
         
         {status && (

@@ -8,13 +8,14 @@ const HotelBookings = () => {
   const { authTokens } = useContext(AuthContext);
 
   const [place, setPlace] = useState(null);
+  const [basePrice, setBasePrice] = useState(0);
   const [formData, setFormData] = useState({
     booking_date: new Date().toISOString().split("T")[0], // Today
     check_in: "",
     check_out: "",
     guests: 1,
     room_type: "",
-    total_price: 0,
+    total_price: "0.00",
     payment_method: "mpesa",
   });
 
@@ -36,9 +37,13 @@ const HotelBookings = () => {
 
         const data = await res.json();
         setPlace(data);
+        
+        // Ensure price is treated as a number
+        const price = parseFloat(data.price) || 0;
+        setBasePrice(price);
         setFormData((prev) => ({
           ...prev,
-          total_price: data.price,
+          total_price: price.toFixed(2),
         }));
       } catch (err) {
         console.error("Failed to load place details", err);
@@ -53,16 +58,48 @@ const HotelBookings = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    if (name === "guests") {
+      const guests = Math.max(1, Number(value)); // Ensure at least 1 guest
+      setFormData((prev) => {
+        const updatedForm = { ...prev, guests };
+        // Recalculate total price
+        return {
+          ...updatedForm,
+          total_price: calculateTotalPrice(updatedForm).toFixed(2)
+        };
+      });
+    } else {
+      setFormData((prev) => {
+        const updatedForm = { ...prev, [name]: value };
+        // For check-in/check-out updates, recalculate total price
+        if (name === "check_in" || name === "check_out") {
+          return {
+            ...updatedForm,
+            total_price: calculateTotalPrice(updatedForm).toFixed(2)
+          };
+        }
+        return updatedForm;
+      });
+    }
+  };
+
+  const calculateTotalPrice = (data = formData) => {
+    const { guests, check_in, check_out } = data;
+    if (!check_in || !check_out) return basePrice * guests;
+    
+    const numDays = Math.max(1, 
+      Math.ceil((new Date(check_out) - new Date(check_in)) / (1000 * 3600 * 24))
+    );
+    return basePrice * guests * numDays;
   };
 
   const validateForm = () => {
-    const { check_in, check_out, room_type } = formData;
-    if (!check_in || !check_out || !room_type) {
+    if (!formData.check_in || !formData.check_out || !formData.room_type || formData.guests < 1) {
       setError("Please fill in all required fields.");
       return false;
     }
-    if (new Date(check_out) <= new Date(check_in)) {
+    if (new Date(formData.check_out) <= new Date(formData.check_in)) {
       setError("Check-out must be after check-in.");
       return false;
     }
@@ -70,27 +107,20 @@ const HotelBookings = () => {
     return true;
   };
 
-  const calculateTotalPrice = () => {
-    const { guests, check_in, check_out } = formData;
-    const numDays =
-      (new Date(check_out) - new Date(check_in)) / (1000 * 3600 * 24);
-    return (place?.price || 0) * guests * numDays;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-    if (!authTokens?.access) {
-      setError("You must be logged in to book.");
-      return;
-    }
 
     setIsSubmitting(true);
 
-    const bookingData = {
-      ...formData,
+    const dataToSend = {
+      booking_date: formData.booking_date,
+      check_in: formData.check_in,
+      check_out: formData.check_out,
+      room_type: formData.room_type,
+      total_price: parseFloat(formData.total_price),
+      payment_method: formData.payment_method,
       place: id,
-      total_price: calculateTotalPrice().toFixed(2),
     };
 
     try {
@@ -100,94 +130,110 @@ const HotelBookings = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authTokens.access}`,
         },
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify(dataToSend),
       });
 
       if (response.ok) {
         const booking = await response.json();
-        alert("Booking successful!");
-        navigate(`/payment/${booking.id}`);
+        // Navigate to payment page with relevant details
+        navigate(`/payment/${booking.id}`, {
+          state: {
+            selectedPlace: place,
+            selectedPrice: formData.total_price,
+            bookingDetails: {
+              checkIn: formData.check_in,
+              checkOut: formData.check_out,
+              guests: formData.guests,
+              roomType: formData.room_type
+            }
+          }
+        });
       } else {
         const errData = await response.json();
-        setError(errData?.message || "Booking failed. Try again.");
+        alert(`Booking failed: ${errData.detail || 'Unknown error'}`);
       }
     } catch (err) {
       console.error("Booking error:", err);
-      setError("Something went wrong. Please try again.");
+      alert("An error occurred.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto mt-10 p-6 bg-white shadow-md rounded-lg">
-      {place && (
-        <>
-          <img
-            src={place.image_url}
-            alt={place.name}
-            className="w-full h-56 object-cover rounded-lg mb-4"
-          />
-          <h2 className="text-2xl font-semibold mb-2">{place.name}</h2>
-        </>
-      )}
+    <div className="max-w-lg mx-auto p-4 bg-white shadow-md rounded-lg">
+      <h2 className="text-2xl font-semibold text-center mb-4">Hotel Booking</h2>
 
-      <h3 className="text-xl font-medium mb-4">Hotel Booking Form</h3>
-      {error && <p className="text-red-500 mb-3">{error}</p>}
+      {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Booking Date</label>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label htmlFor="booking_date" className="block text-sm font-medium text-gray-700">
+            Booking Date
+          </label>
           <input
             type="date"
             name="booking_date"
             value={formData.booking_date}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md p-2"
+            required
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Check-in Date</label>
+        <div className="mb-4">
+          <label htmlFor="check_in" className="block text-sm font-medium text-gray-700">
+            Check-in Date
+          </label>
           <input
             type="date"
             name="check_in"
             value={formData.check_in}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md p-2"
+            required
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Check-out Date</label>
+        <div className="mb-4">
+          <label htmlFor="check_out" className="block text-sm font-medium text-gray-700">
+            Check-out Date
+          </label>
           <input
             type="date"
             name="check_out"
             value={formData.check_out}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md p-2"
+            required
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Number of Guests</label>
+        <div className="mb-4">
+          <label htmlFor="guests" className="block text-sm font-medium text-gray-700">
+            Number of Guests
+          </label>
           <input
             type="number"
             name="guests"
             value={formData.guests}
             onChange={handleChange}
             min="1"
-            className="w-full border border-gray-300 rounded-md p-2"
+            required
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Room Type</label>
+        <div className="mb-4">
+          <label htmlFor="room_type" className="block text-sm font-medium text-gray-700">
+            Room Type
+          </label>
           <select
             name="room_type"
             value={formData.room_type}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md p-2"
+            required
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Select Room Type</option>
             <option value="single">Single</option>
@@ -196,45 +242,43 @@ const HotelBookings = () => {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Payment Method</label>
+        <div className="mb-4">
+          <label htmlFor="total_price" className="block text-sm font-medium text-gray-700">
+            Total Price
+          </label>
+          <input
+            type="text"
+            name="total_price"
+            value={`$${formData.total_price}`}
+            disabled
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed shadow-sm focus:outline-none"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label htmlFor="payment_method" className="block text-sm font-medium text-gray-700">
+            Payment Method
+          </label>
           <select
             name="payment_method"
             value={formData.payment_method}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md p-2"
+            required
+            className="mt-1 p-2 w-full border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="mpesa">M-Pesa</option>
             <option value="visa">Visa/PayPal</option>
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Total Price</label>
-          <input
-            type="number"
-            name="total_price"
-            value={calculateTotalPrice()}
-            readOnly
-            className="w-full border border-gray-300 rounded-md p-2 bg-gray-100 text-gray-600"
-          />
-        </div>
-
         <button
           type="submit"
-          disabled={isSubmitting}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
+          disabled={isSubmitting || !!error}
+          className="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
-          {isSubmitting ? "Booking..." : "Confirm & Proceed to Payment"}
+          {isSubmitting ? "Booking..." : "Book Hotel"}
         </button>
       </form>
-
-      {/* Link to My Tickets page */}
-      <div className="mt-4 text-center">
-        <Link to="/mytickets" className="text-blue-600 hover:underline">
-          View My Bookings
-        </Link>
-      </div>
     </div>
   );
 };

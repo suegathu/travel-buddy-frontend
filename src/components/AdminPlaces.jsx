@@ -52,18 +52,26 @@ const AdminPlaces = () => {
   const fetchFromOSM = async () => {
     if (!fetchCity) return toast.warn("Please enter a city");
   
-    try {
-      const res = await axiosInstance.get(`/places/?city=${fetchCity}`, {
-        headers: { Authorization: `Bearer ${authTokens.access}` },
-      });
+    const categories = ["hotel", "restaurant", "attraction"];
   
-      const fetchedPlaces = Array.isArray(res.data) ? res.data : (res.data.results || []);
-      
-      if (fetchedPlaces.length > 0) {
-        toast.success(`Fetched ${fetchedPlaces.length} places from OSM for ${fetchCity}`);
-        
-        // Show fetched OSM places first
-        setPlaces((prev) => [...fetchedPlaces, ...prev]);
+    try {
+      let allFetched = [];
+  
+      for (const type of categories) {
+        const res = await axiosInstance.get(
+          `/places/?city=${fetchCity}&type=${type}&refresh=true`,
+          {
+            headers: { Authorization: `Bearer ${authTokens.access}` },
+          }
+        );
+  
+        const fetched = Array.isArray(res.data) ? res.data : (res.data.results || []);
+        allFetched = [...allFetched, ...fetched];
+      }
+  
+      if (allFetched.length > 0) {
+        toast.success(`Fetched ${allFetched.length} new places from OSM for ${fetchCity}`);
+        setPlaces((prev) => [...allFetched, ...prev]);
       } else {
         toast.info(`No new places found for ${fetchCity}`);
       }
@@ -74,6 +82,7 @@ const AdminPlaces = () => {
       toast.error("Failed to fetch data from OSM.");
     }
   };
+  
 
   const handleDelete = async (id) => {
     if (window.confirm("Delete this place?")) {
