@@ -43,6 +43,7 @@ const App = () => {
           <Route path="/mytickets" element={<MyTickets />} />
          <Route path="/ticket-details/:id" element={<TicketDetail />} />
          <Route path="/payment/:id" element={<PaymentForm />} />
+
         </Routes>
       </AuthProvider>
     </Router>

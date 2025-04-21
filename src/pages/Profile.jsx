@@ -10,81 +10,89 @@ const Profile = () => {
   const baseUrl = "http://127.0.0.1:8000";
 
   useEffect(() => {
-    // Fetching profile data
-    axiosInstance.get("users/profile/", {
-      headers: { Authorization: `Bearer ${authTokens?.access}` },
-    }).then((res) => {
-      console.log("Profile data:", res.data);
-      setProfile(res.data);
-    });
+    axiosInstance
+      .get("users/profile/", {
+        headers: { Authorization: `Bearer ${authTokens?.access}` },
+      })
+      .then((res) => {
+        console.log("Profile data:", res.data);
+        setProfile(res.data);
+      });
   }, []);
 
   const handleRemoveImage = () => {
-    axiosInstance.put("users/profile/", {
-      ...profile,
-      profile_image: null,
-    }, {
-      headers: { Authorization: `Bearer ${authTokens?.access}` },
-    }).then(res => setProfile(res.data));
+    axiosInstance
+      .put(
+        "users/profile/",
+        { ...profile, profile_image: null },
+        {
+          headers: { Authorization: `Bearer ${authTokens?.access}` },
+        }
+      )
+      .then((res) => setProfile(res.data));
   };
 
-  // Function to handle image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    
-    if (imagePath.startsWith('http')) {
-      return imagePath;
-    }
-    
-    const formattedPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+    if (imagePath.startsWith("http")) return imagePath;
+    const formattedPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
     return `${baseUrl}${formattedPath}`;
   };
 
   return (
-    <div className="p-8">
-      <h1 className="text-xl font-bold mb-4">My Profile</h1>
-      
-      {profile.profile_image && (
-        <div className="mb-4">
-          <img
-            src={getImageUrl(profile.profile_image)}
-            alt="Profile"
-            className="w-32 h-32 rounded-full object-cover"
-            onError={(e) => {
-              console.error("Image failed to load:", e);
-            }}
-          />
-          <button
-            onClick={handleRemoveImage}
-            className="mt-2 bg-red-500 text-white px-3 py-1 rounded"
-          >
-            Remove Image
-          </button>
+    <div className="max-w-3xl mx-auto p-6">
+      <div className="bg-white rounded-2xl shadow-md p-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">My Profile</h1>
+
+        {profile.profile_image && (
+          <div className="flex flex-col items-center mb-6">
+            <img
+              src={getImageUrl(profile.profile_image)}
+              alt="Profile"
+              className="w-32 h-32 rounded-full object-cover shadow-md"
+              onError={(e) => console.error("Image failed to load:", e)}
+            />
+            <button
+              onClick={handleRemoveImage}
+              className="mt-3 bg-red-500 text-white px-4 py-1 rounded-md hover:bg-red-600 transition"
+            >
+              Remove Image
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 text-gray-700">
+          <p>
+            <span className="font-semibold">Username:</span> {profile.username}
+          </p>
+          <p>
+            <span className="font-semibold">Email:</span> {profile.email || "N/A"}
+          </p>
+          <p>
+            <span className="font-semibold">Full Name:</span> {profile.full_name || "N/A"}
+          </p>
+          <p>
+            <span className="font-semibold">Phone Number:</span> {profile.phone_number || "N/A"}
+          </p>
+          <p>
+            <span className="font-semibold">Address:</span> {profile.address || "N/A"}
+          </p>
         </div>
-      )}
-      
-      <p><strong>Username:</strong> {profile.username}</p>
-      <p><strong>Email:</strong> {profile.email  || 'N/A'}</p>
-      <p><strong>Full Name:</strong> {profile.full_name || "N/A"}</p>
-      <p><strong>Phone Number:</strong> {profile.phone_number || "N/A"}</p>
-      <p><strong>Address:</strong> {profile.address || "N/A"}</p>
-      
-      <button
-        onClick={() => navigate("/edit-profile")}
-        className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        Edit Profile
-      </button>
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold mb-2">View My Bookings</h2>
-        <p>
-          <a 
-            href="/mytickets" 
-            className="text-blue-600 hover:underline"
+
+        <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-4">
+          <button
+            onClick={() => navigate("/edit-profile")}
+            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
           >
-            Click here to view your bookings.
+            Edit Profile
+          </button>
+          <a
+            href="/mytickets"
+            className="text-blue-600 hover:underline text-sm sm:text-base"
+          >
+            View My Bookings →
           </a>
-        </p>
+        </div>
       </div>
     </div>
   );
