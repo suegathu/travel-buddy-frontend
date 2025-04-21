@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosInstance from "../api/axios";
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const Register = () => {
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [registerStatus, setRegisterStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -15,15 +18,25 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setRegisterStatus("Registering...");
+    setIsLoading(true);
+    
     try {
-      await axiosInstance.post("users/register/", form);
+      await axios.post(`${API_BASE_URL}/api/users/register/`, form);
       setRegisterStatus("Registration successful!");
       setTimeout(() => {
         navigate("/"); // Navigate after success
       }, 1500);
     } catch (err) {
       console.error("Registration error:", err);
-      setRegisterStatus("Registration failed. Please try again.");
+      if (err.response && err.response.data) {
+        // Display more specific error message from API if available
+        const errorMsg = Object.values(err.response.data).flat().join(', ');
+        setRegisterStatus(`Registration failed: ${errorMsg}`);
+      } else {
+        setRegisterStatus("Registration failed. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -105,9 +118,10 @@ const Register = () => {
             
             <button 
               type="submit" 
-              className="bg-cyan-500 text-white px-4 py-3 w-full hover:bg-cyan-600 rounded transition-colors font-medium"
+              className="bg-cyan-500 text-white px-4 py-3 w-full hover:bg-cyan-600 rounded transition-colors font-medium disabled:bg-cyan-300"
+              disabled={isLoading}
             >
-              Register
+              {isLoading ? "Registering..." : "Register"}
             </button>
             
             <div className="text-center mt-4">
