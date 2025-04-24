@@ -1,0 +1,76 @@
+.flight-container {
+    padding-top: 40px;
+    padding-bottom: 40px;
+}
+
+.heading {
+    font-weight: bold;
+    margin-bottom: 30px;
+}
+
+.loader {
+    display: block;
+    margin: 40px auto;
+}
+
+.error-alert,
+.info-alert {
+    margin-bottom: 20px;
+}
+
+.booking-card {
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+    padding: 16px;
+}
+
+.booking-id {
+    margin-bottom: 10px;
+}
+
+.divider {
+    margin-bottom: 16px;
+}
+
+.booking-detail {
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.qr-section {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.qr-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.download-btn {
+    margin-top: 10px;
+    text-transform: none;
+}
+
+.cancel-btn {
+    margin-top: 10px;
+    text-transform: none;
+}
+.status {
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.status-confirmed {
+    color: green;
+}
+
+.status-pending {
+    color: orange;
+}
+
+.status-cancelled {
+    color: red;
+}

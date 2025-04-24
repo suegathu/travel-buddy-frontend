@@ -178,12 +178,13 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
   };
 
   // Helper function to check if an image URL is valid
-  const getValidImageUrl = (imageUrl) => {
-    if (!imageUrl || imageUrl.includes('undefined') || imageUrl === '') {
-      return DEFAULT_PLACE_IMAGE;
-    }
-    return imageUrl;
-  };
+  // In the React component:
+const getValidImageUrl = (imageUrl) => {
+  if (!imageUrl || imageUrl.includes('undefined') || imageUrl === '' || !imageUrl.startsWith('http')) {
+    return DEFAULT_PLACE_IMAGE;
+  }
+  return imageUrl;
+};
 
   if (loading) return <div className="text-center mt-10">Loading places...</div>;
 

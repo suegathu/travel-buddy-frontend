@@ -1,0 +1,78 @@
+/* BookFlight.css */
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.header {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.select-seat {
+    width: 100%;
+    max-width: 400px;
+    margin-top: 20px;
+}
+
+.button-container {
+    display: flex;
+    justify-content: space-between; /* Ensures buttons are spaced inline */
+    width: 100%;
+    max-width: 400px;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.button-container button {
+    padding: 10px;
+    font-size: 16px;
+    flex: 1; /* Ensures buttons take equal width */
+}
+
+.message {
+    margin-top: 20px;
+    color: green;
+}
+
+.error {
+    margin-top: 10px;
+    color: red;
+}
+
+/* Loading spinner */
+.loading-spinner {
+    margin-top: 20px;
+    text-align: center;
+}
+
+/* Responsiveness */
+@media (max-width: 600px) {
+    .container {
+        padding: 10px;
+    }
+
+    .header {
+        font-size: 1.5rem;
+    }
+
+    .select-seat,
+    .button-container {
+        max-width: 100%;
+    }
+
+    .button-container {
+        flex-direction: column; /* Stack buttons on top of each other on smaller screens */
+    }
+
+    .button-container button {
+        font-size: 14px;
+    }
+}

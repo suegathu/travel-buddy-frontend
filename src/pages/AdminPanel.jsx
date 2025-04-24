@@ -3,6 +3,8 @@ import AdminUsers from "../components/AdminUsers";
 import AdminPlaces from "../components/AdminPlaces";
 import AdminBookings from "../components/AdminBookings";
 import AdminPayments from "../components/AdminPayment";
+import FlightAdmin from "../components/FlightAdmin";
+import AdminFlightBookings from "../components/AdminFlightBooking";
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState("users");
@@ -17,6 +19,8 @@ const AdminPanel = () => {
         return <AdminBookings />;
       case "payments":
         return <AdminPayments />;
+      case 'flight':
+        return <AdminFlightBookings />;  
       default:
         return <AdminUsers />;
     }
@@ -39,6 +43,7 @@ const AdminPanel = () => {
             <option value="places">Places</option>
             <option value="bookings">Bookings</option>
             <option value="payments">Payments</option>
+            <option value="flight">Flights</option>
           </select>
         </div>
         
@@ -83,6 +88,16 @@ const AdminPanel = () => {
             }`}
           >
             Payments
+          </button>
+          <button 
+            onClick={() => setActiveTab("flight")} 
+            className={`px-4 py-2 rounded transition-colors ${
+              activeTab === "payments" 
+                ? "bg-blue-600 text-white" 
+                : "bg-gray-200 hover:bg-gray-300"
+            }`}
+          >
+            flight
           </button>
         </div>
       </div>

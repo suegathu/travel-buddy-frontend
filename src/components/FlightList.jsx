@@ -1,6 +1,20 @@
 import React, { useState } from "react";
 import api from "../api/api";
+import {
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Grid,
+  TextField,
+  CircularProgress,
+} from "@mui/material";
 import { useNavigate } from "react-router-dom";
+
+// Generate a random price between $100 and $1000
+const generatePrice = () => {
+  return (Math.floor(Math.random() * 900) + 100).toFixed(2);
+};
 
 const FlightList = () => {
   const [flights, setFlights] = useState([]);
@@ -26,7 +40,14 @@ const FlightList = () => {
         search.date
       );
       console.log("Fetched Flights:", flightsData);
-      setFlights(flightsData);
+
+      // Inject a generated price if it's missing
+      const flightsWithPrices = flightsData.map((flight) => ({
+        ...flight,
+        price: flight.price ?? generatePrice(),
+      }));
+
+      setFlights(flightsWithPrices);
     } catch (err) {
       console.error("Error fetching flights:", err);
       setError(
@@ -38,88 +59,99 @@ const FlightList = () => {
     }
   };
 
+  // Function to navigate to booking page with flight data
+  const navigateToBooking = (flight) => {
+    const flightId = flight.id ?? flight.flight_number;
+    
+    if (!flightId) {
+      setError("Flight ID is missing. Unable to book.");
+      return;
+    }
+    
+    // Pass the entire flight object as state to the booking page
+    navigate(`/book-flight/${flightId}`, { 
+      state: { flightData: flight } 
+    });
+  };
+
+  // Format date for better display
+  const formatDateTime = (dateTimeStr) => {
+    if (!dateTimeStr) return "Not available";
+    try {
+      const date = new Date(dateTimeStr);
+      return date.toLocaleString();
+    } catch (err) {
+      return dateTimeStr, err;
+    }
+  };
+
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Search Flights</h1>
-      <div className="flex flex-wrap gap-4 mb-4">
-        <input
-          type="text"
-          placeholder="From"
-          className="border border-gray-300 rounded-md px-4 py-2 w-48"
-          value={search.from}
-          onChange={(e) => setSearch({ ...search, from: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="To"
-          className="border border-gray-300 rounded-md px-4 py-2 w-48"
-          value={search.to}
-          onChange={(e) => setSearch({ ...search, to: e.target.value })}
-        />
-        <input
-          type="date"
-          className="border border-gray-300 rounded-md px-4 py-2 w-48"
-          value={search.date}
-          onChange={(e) => setSearch({ ...search, date: e.target.value })}
-        />
-        <button
-          onClick={fetchFlightsFromAviationStack}
-          className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
-        >
-          Search Flights
-        </button>
-      </div>
+    <div>
+      <h1>Search Flights</h1>
+      <TextField
+        label="From"
+        variant="outlined"
+        value={search.from}
+        onChange={(e) => setSearch({ ...search, from: e.target.value })}
+        style={{ marginRight: "10px" }}
+      />
+      <TextField
+        label="To"
+        variant="outlined"
+        value={search.to}
+        onChange={(e) => setSearch({ ...search, to: e.target.value })}
+        style={{ marginRight: "10px" }}
+      />
+      <TextField
+        type="date"
+        variant="outlined"
+        value={search.date}
+        onChange={(e) => setSearch({ ...search, date: e.target.value })}
+        style={{ marginRight: "10px" }}
+      />
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={fetchFlightsFromAviationStack}
+      >
+        Search Flights
+      </Button>
 
-      {loading && (
-        <div className="flex justify-center my-6">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      )}
-      {error && <p className="text-red-500 mb-4">{error}</p>}
+      {loading && <CircularProgress style={{ marginTop: "20px" }} />}
+      {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+      <Grid container spacing={2} style={{ marginTop: "20px" }}>
         {flights.length > 0 ? (
-          flights.map((flight, index) => {
-            const flightId = flight.id ?? flight.flight_number ?? null;
-
-            return (
-              <div key={index} className="bg-white shadow rounded-xl p-4">
-                <h2 className="text-lg font-semibold mb-2">
-                  {flight.airline} ({flight.flight_number})
-                </h2>
-                <p>From: {flight.departure_airport}</p>
-                <p>To: {flight.arrival_airport}</p>
-                <p>Departure: {flight.departure_time}</p>
-                <p>Arrival: {flight.arrival_time}</p>
-                <p>
-                  Seats Available:{" "}
-                  {flight.available_seats ?? "Not Available"}
-                </p>
-                <p>Price: ${flight.price ?? "TBD"}</p>
-                <button
-                  disabled={!flightId}
-                  onClick={() => {
-                    if (!flightId) {
-                      setError("Flight ID is missing. Unable to book.");
-                    } else {
-                      navigate(`/book-flight/${flightId}`);
-                    }
-                  }}
-                  className={`mt-4 w-full px-4 py-2 rounded-md text-white ${
-                    flightId
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-gray-400 cursor-not-allowed"
-                  } transition`}
-                >
-                  Book Now
-                </button>
-              </div>
-            );
-          })
+          flights.map((flight, index) => (
+            <Grid item key={index} xs={12} sm={6} md={4}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6">
+                    {flight.airline} ({flight.flight_number})
+                  </Typography>
+                  <Typography>From: {flight.departure_airport}</Typography>
+                  <Typography>To: {flight.arrival_airport}</Typography>
+                  <Typography>Departure: {formatDateTime(flight.departure_time)}</Typography>
+                  <Typography>Arrival: {formatDateTime(flight.arrival_time)}</Typography>
+                  <Typography>
+                    Seats Available: {flight.available_seats ?? "Not Available"}
+                  </Typography>
+                  <Typography>Price: ${flight.price}</Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => navigateToBooking(flight)}
+                  >
+                    Book Now
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))
         ) : (
-          !loading && <p className="text-gray-600">No flights available.</p>
+          !loading && <p>No flights available.</p>
         )}
-      </div>
+      </Grid>
     </div>
   );
 };

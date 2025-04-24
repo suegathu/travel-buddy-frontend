@@ -15,7 +15,7 @@ const AdminUsers = () => {
     console.log("User Object:", user);
     
     if (!authTokens || !authTokens.access) {
-      navigate("/login");
+      navigate("/");
       return;
     }
 
