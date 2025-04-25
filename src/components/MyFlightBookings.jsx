@@ -63,24 +63,32 @@ const MyFlightBookings = () => {
 
   const handleDownloadPDF = async (bookingId) => {
     try {
-      const res = await api.get(`/api/flights/my-flight-bookings/${bookingId}/pdf/`, {
+      const response = await api.get(`/api/flights/bookings/${bookingId}/download/`, {
         responseType: 'blob',
-        headers: { Authorization: `Bearer ${authTokens.access}` },
+        headers: {
+          Authorization: `Bearer ${authTokens.access}`,
+          Accept: 'application/pdf',
+        },
       });
-
-      const url = window.URL.createObjectURL(new Blob([res.data]));
+  
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+  
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `flight_booking_${bookingId}.pdf`);
       document.body.appendChild(link);
       link.click();
-      link.remove();
+  
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Failed to download PDF:', err);
       alert('Could not download PDF.');
     }
   };
-
+  
   if (loading) return <p className="text-center py-10">Loading your flights...</p>;
 
   return (

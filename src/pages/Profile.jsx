@@ -90,7 +90,13 @@ const Profile = () => {
             href="/mytickets"
             className="text-blue-600 hover:underline text-sm sm:text-base"
           >
-            View My Bookings →
+            View Place Bookings →
+          </a>
+          <a
+            href="/flight-booking"
+            className="text-blue-600 hover:underline text-sm sm:text-base"
+          >
+            View Flight Bookings →
           </a>
         </div>
       </div>

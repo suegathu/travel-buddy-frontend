@@ -31,6 +31,12 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
+          <Link 
+              to="/dashboard" 
+              className="text-white hover:bg-blue-700 px-3 py-2 rounded-md text-sm font-medium"
+            >
+              Home
+            </Link>
             <Link 
               to="/flights" 
               className="text-white hover:bg-blue-700 px-3 py-2 rounded-md text-sm font-medium"
