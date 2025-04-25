@@ -246,7 +246,7 @@ const FlightPayment = () => {
         setPaymentStatus('success');
         setStatus('Payment completed successfully!');
         setTimeout(() => {
-          navigate('/checkin');
+            navigate('flight-booking')
         }, 2000);
       } else if (response.data.status === 'failed') {
         setPaymentStatus('failed');

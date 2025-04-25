@@ -7,7 +7,6 @@ const CheckIn = () => {
     const [searchParams] = useSearchParams();
     const bookingId = searchParams.get("booking_id");
     const navigate = useNavigate(); // ✅ Hook to navigate to my-bookings
-    const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
     const [bookingDetails, setBookingDetails] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -15,6 +14,7 @@ const CheckIn = () => {
     const [checkInLoading, setCheckInLoading] = useState(false);
     const [checkInError, setCheckInError] = useState("");
     const [checkInSuccess, setCheckInSuccess] = useState("");
+    const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
     useEffect(() => {
         if (!bookingId) {

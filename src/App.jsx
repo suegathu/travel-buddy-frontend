@@ -25,8 +25,8 @@ import FlightList from "./components/FlightList";
 import BookFlight from "./components/BookFlight";
 import CheckIn from "./components/Checkin";
 import FlightPayment from "./components/FlightPayments";
-import FlightAdmin from './components/FlightAdmin'
 import AdminFlightBookings from "./components/AdminFlightBooking";
+import MyFlightBookings from './components/MyFlightBookings';
 
 // Component to conditionally show Navbar
 const AppContent = () => {
@@ -61,6 +61,7 @@ const AppContent = () => {
         <Route path="/checkin" element={<CheckIn />} />
         <Route path="/payment" element={<FlightPayment />} />
         <Route path="/admin-flights" element={<AdminFlightBookings />} />
+        <Route path="/flight-booking" element={<MyFlightBookings />} />
       </Routes>
     </>
   );

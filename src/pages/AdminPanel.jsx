@@ -17,8 +17,8 @@ const AdminPanel = () => {
         return <AdminPlaces />;
       case "bookings":
         return <AdminBookings />;
-      case "payments":
-        return <AdminPayments />;
+      // case "payments":
+      //   return <AdminPayments />;
       case 'flight':
         return <AdminFlightBookings />;  
       default:
@@ -42,7 +42,7 @@ const AdminPanel = () => {
             <option value="users">Users</option>
             <option value="places">Places</option>
             <option value="bookings">Bookings</option>
-            <option value="payments">Payments</option>
+            {/* <option value="payments">Payments</option> */}
             <option value="flight">Flights</option>
           </select>
         </div>
@@ -79,7 +79,7 @@ const AdminPanel = () => {
           >
             Bookings
           </button>
-          <button 
+          {/* <button 
             onClick={() => setActiveTab("payments")} 
             className={`px-4 py-2 rounded transition-colors ${
               activeTab === "payments" 
@@ -88,7 +88,7 @@ const AdminPanel = () => {
             }`}
           >
             Payments
-          </button>
+          </button> */}
           <button 
             onClick={() => setActiveTab("flight")} 
             className={`px-4 py-2 rounded transition-colors ${

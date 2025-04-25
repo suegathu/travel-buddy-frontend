@@ -13,6 +13,18 @@ const AdminPlaces = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [fetchCity, setFetchCity] = useState("");
 
+  // Filter states
+  const [filters, setFilters] = useState({
+    name: "",
+    category: "",
+    minPrice: "",
+    maxPrice: "",
+    localOnly: false,
+  });
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState("newest"); // Default sort by newest
+
   // Modal form states
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -28,18 +40,61 @@ const AdminPlaces = () => {
 
   useEffect(() => {
     fetchPlaces();
-  }, [currentPage]);
+  }, [currentPage, filters, sortBy]);
 
   const fetchPlaces = async () => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get(`/places/?page=${currentPage}`, {
+      // Build query params
+      let queryParams = `page=${currentPage}`;
+      
+      // Add filters to query
+      if (filters.name) queryParams += `&search=${filters.name}`;
+      if (filters.category) queryParams += `&place_type=${filters.category}`;
+      
+      // Add localOnly filter to backend query
+      if (filters.localOnly) queryParams += `&local_only=true`;
+      
+      const res = await axiosInstance.get(`/places/?${queryParams}`, {
         headers: { Authorization: `Bearer ${authTokens.access}` },
       });
-      const data = res.data;
-  
-      // Check if paginated or flat list
-      setPlaces(data.results || data);  // Use data.results if paginated, else raw array
+      
+      let data = res.data;
+      let filteredData = data.results || data;
+      
+      // Client-side filtering for price range
+      if (filters.minPrice) {
+        filteredData = filteredData.filter(place => 
+          parseFloat(place.price) >= parseFloat(filters.minPrice)
+        );
+      }
+      
+      if (filters.maxPrice) {
+        filteredData = filteredData.filter(place => 
+          parseFloat(place.price) <= parseFloat(filters.maxPrice)
+        );
+      }
+      
+      // Apply sorting
+      if (sortBy === "newest") {
+        filteredData.sort((a, b) => 
+          new Date(b.created_at || b.last_updated || 0) - 
+          new Date(a.created_at || a.last_updated || 0)
+        );
+      } else if (sortBy === "oldest") {
+        filteredData.sort((a, b) => 
+          new Date(a.created_at || a.last_updated || 0) - 
+          new Date(b.created_at || b.last_updated || 0)
+        );
+      } else if (sortBy === "price-low") {
+        filteredData.sort((a, b) => parseFloat(a.price || 0) - parseFloat(b.price || 0));
+      } else if (sortBy === "price-high") {
+        filteredData.sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
+      } else if (sortBy === "name") {
+        filteredData.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      
+      setPlaces(filteredData);
       setTotalPages(data.total_pages || 1);
       setLoading(false);
     } catch (err) {
@@ -47,6 +102,30 @@ const AdminPlaces = () => {
       toast.error("Failed to fetch places.", err);
       setLoading(false);
     }
+  };
+  
+  const handleFilterChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+  
+  const resetFilters = () => {
+    setFilters({
+      name: "",
+      category: "",
+      minPrice: "",
+      maxPrice: "",
+      localOnly: false,
+    });
+    setCurrentPage(1);
+  };
+  
+  const handleSortChange = (e) => {
+    setSortBy(e.target.value);
   };
   
   const fetchFromOSM = async () => {
@@ -83,7 +162,6 @@ const AdminPlaces = () => {
     }
   };
   
-
   const handleDelete = async (id) => {
     if (window.confirm("Delete this place?")) {
       try {
@@ -129,7 +207,7 @@ const AdminPlaces = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const method = editMode ? "put" : "post";
-    const url = editMode ? `/places/${formData.id}/` : "/places/";
+    const url = editMode ? `/places/${formData.id}/` : "/place/";
 
     try {
       await axiosInstance[method](url, {
@@ -168,7 +246,8 @@ const AdminPlaces = () => {
         </button>
       </div>
 
-      <div className="flex items-center gap-2 mb-4">
+      {/* OSM Data Fetching */}
+      <div className="flex items-center gap-2 mb-6 p-4 bg-gray-50 rounded-lg">
         <input
           type="text"
           value={fetchCity}
@@ -184,32 +263,151 @@ const AdminPlaces = () => {
         </button>
       </div>
 
+      {/* Filters Section */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold">Filters</h2>
+          <button 
+            onClick={resetFilters}
+            className="text-indigo-600 text-sm"
+          >
+            Reset Filters
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Name filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input
+              type="text"
+              name="name"
+              value={filters.name}
+              onChange={handleFilterChange}
+              placeholder="Search by name"
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          
+          {/* Category filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select
+              name="category"
+              value={filters.category}
+              onChange={handleFilterChange}
+              className="border px-3 py-2 rounded w-full"
+            >
+              <option value="">All Categories</option>
+              <option value="hotel">Hotel</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="attraction">Attraction</option>
+            </select>
+          </div>
+          
+          {/* Sort By */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+            <select
+              value={sortBy}
+              onChange={handleSortChange}
+              className="border px-3 py-2 rounded w-full"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="price-low">Price (Low to High)</option>
+              <option value="price-high">Price (High to Low)</option>
+              <option value="name">Name (A-Z)</option>
+            </select>
+          </div>
+          
+          {/* Price range */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Min Price ($)</label>
+            <input
+              type="number"
+              name="minPrice"
+              value={filters.minPrice}
+              onChange={handleFilterChange}
+              placeholder="Min Price"
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Max Price ($)</label>
+            <input
+              type="number"
+              name="maxPrice"
+              value={filters.maxPrice}
+              onChange={handleFilterChange}
+              placeholder="Max Price"
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          
+          {/* Local Only checkbox */}
+          <div className="flex items-center mt-7">
+            <input
+              type="checkbox"
+              id="localOnly"
+              name="localOnly"
+              checked={filters.localOnly}
+              onChange={handleFilterChange}
+              className="h-4 w-4 text-indigo-600 rounded"
+            />
+            <label htmlFor="localOnly" className="ml-2 text-sm text-gray-700">
+              Show locally created places only
+            </label>
+          </div>
+        </div>
+      </div>
+
       {loading ? (
-        <p>Loading places...</p>
+        <div className="flex justify-center">
+          <p className="text-gray-500">Loading places...</p>
+        </div>
       ) : error ? (
         <p className="text-red-600">{error}</p>
+      ) : places.length === 0 ? (
+        <div className="text-center py-10">
+          <p className="text-gray-500">No places found matching your criteria.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {places.map((place) => (
             <div
               key={place.id}
-              className="border rounded p-4 flex flex-col"
+              className="border rounded p-4 flex flex-col bg-white shadow-sm hover:shadow-md transition-shadow"
             >
               <div>
-                <h2 className="font-semibold">{place.name}</h2>
-                <p>{place.city} - {place.place_type || place.category}</p>
-                <p className="mb-4">${place.price}</p>
+                <div className="flex justify-between items-start">
+                  <h2 className="font-semibold text-lg">{place.name}</h2>
+                  {!place.osm_id && (
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Local</span>
+                  )}
+                </div>
+                <p className="text-gray-600">{place.city} - {place.place_type || place.category}</p>
+                <p className="mb-1 font-medium">${place.price}</p>
+                {place.rating && (
+                  <p className="text-sm text-amber-600 mb-2">Rating: {place.rating}/5</p>
+                )}
+                {place.last_updated && (
+                  <p className="text-xs text-gray-500 mb-3">
+                    Last updated: {new Date(place.last_updated).toLocaleDateString()}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2 mt-auto">
                 <button
                   onClick={() => handleEdit(place)}
-                  className="bg-blue-500 text-white px-3 py-1 rounded flex-1"
+                  className="bg-blue-500 text-white px-3 py-1 rounded flex-1 hover:bg-blue-600"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => handleDelete(place.id)}
-                  className="bg-red-500 text-white px-3 py-1 rounded flex-1"
+                  className="bg-red-500 text-white px-3 py-1 rounded flex-1 hover:bg-red-600"
                 >
                   Delete
                 </button>
@@ -220,21 +418,25 @@ const AdminPlaces = () => {
       )}
 
       {/* Pagination */}
-      <div className="flex justify-between mt-6">
+      <div className="flex justify-between items-center mt-6">
         <button
           onClick={handlePrevPage}
-          disabled={currentPage === 1}
-          className="bg-gray-400 text-white px-4 py-2 rounded"
+          disabled={currentPage === 1 || loading}
+          className={`px-4 py-2 rounded ${
+            currentPage === 1 || loading ? "bg-gray-300 cursor-not-allowed" : "bg-gray-500 hover:bg-gray-600"
+          } text-white`}
         >
           Previous
         </button>
-        <p>
+        <p className="text-gray-600">
           Page {currentPage} of {totalPages}
         </p>
         <button
           onClick={handleNextPage}
-          disabled={currentPage === totalPages}
-          className="bg-gray-400 text-white px-4 py-2 rounded"
+          disabled={currentPage === totalPages || loading}
+          className={`px-4 py-2 rounded ${
+            currentPage === totalPages || loading ? "bg-gray-300 cursor-not-allowed" : "bg-gray-500 hover:bg-gray-600"
+          } text-white`}
         >
           Next
         </button>
@@ -303,13 +505,13 @@ const AdminPlaces = () => {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="bg-gray-400 text-white px-4 py-2 rounded"
+                  className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 >
                   {editMode ? "Update" : "Create"}
                 </button>
