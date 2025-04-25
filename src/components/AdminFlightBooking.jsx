@@ -21,7 +21,7 @@ const AdminFlightBookings = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/api/flights/admin/flights/', {
+      const response = await fetch('http://localhost:8000/api/flights/admin/bookings/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -31,14 +31,26 @@ const AdminFlightBookings = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("Fetched booking data:", data); // Debug log
-        const bookingsData = data.results || data;
+        console.log("Fetched booking data:", data);
+        
+        // Check if the response has a results property, otherwise use the data directly
+        const bookingsData = Array.isArray(data) ? data : (data.results || []);
+        
+        console.log("Processed bookings data:", bookingsData);
+        
+        // Add debugging to see the structure of the first booking
+        if (bookingsData.length > 0) {
+          console.log("First booking sample:", bookingsData[0]);
+        }
+        
         setBookings(bookingsData);
         
-        // Extract unique airlines from bookings
-        const uniqueAirlines = [...new Set(bookingsData.map(booking => booking.flight_airline).filter(Boolean))];
-        setAirlines(uniqueAirlines);
+        // Extract unique airlines
+        const uniqueAirlines = [...new Set(bookingsData
+          .map(booking => booking.airline)
+          .filter(airline => airline && airline !== 'N/A'))];
         
+        setAirlines(uniqueAirlines);
         setError('');
       } else {
         const errorData = await response.json();
@@ -56,7 +68,7 @@ const AdminFlightBookings = () => {
     try {
       if (!authTokens?.access) return;
 
-      const response = await fetch(`http://localhost:8000/api/flights/admin/flights/${id}/`, {
+      const response = await fetch(`http://localhost:8000/api/flights/admin/bookings/${id}/update/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -86,27 +98,26 @@ const AdminFlightBookings = () => {
     try {
       if (!authTokens?.access) return;
   
-      const response = await fetch(`http://localhost:8000/api/flights/admin/flights/${id}/cancel/`, {
-        method: 'PATCH',
+      const response = await fetch(`http://localhost:8000/api/flights/admin/bookings/${id}/delete/`, {
+        method: 'DELETE',  // Changed from PATCH to DELETE
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${authTokens.access}`,
-        },
-        body: JSON.stringify({ status: 'cancelled' }),
+        }
       });
   
       if (response.ok) {
-        // Refresh bookings after cancellation
+        // Refresh bookings after deletion
         fetchBookings();
         
         // Close the modal
         setShowModal(false);
       } else {
         const errorData = await response.json();
-        console.error(`Error cancelling flight booking ${id}:`, errorData);
+        console.error(`Error deleting flight booking ${id}:`, errorData);
       }
     } catch (error) {
-      console.error(`Error cancelling flight booking ${id}:`, error);
+      console.error(`Error deleting flight booking ${id}:`, error);
     }
   };
   
@@ -122,7 +133,7 @@ const AdminFlightBookings = () => {
   const filterBookings = (bookings) => {
     return bookings.filter((booking) => {
       const statusMatch = filterStatus ? booking.status === filterStatus : true;
-      const airlineMatch = filterAirline ? booking.flight_airline === filterAirline : true;
+      const airlineMatch = filterAirline ? booking.airline === filterAirline : true;
       return statusMatch && airlineMatch;
     });
   };
@@ -148,9 +159,40 @@ const AdminFlightBookings = () => {
     return badgeStyles[status?.toLowerCase()] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
-  // Add this function to handle empty or undefined values
+  // Improved displayValue function with better null/undefined handling
   const displayValue = (value) => {
-    return value || 'N/A';
+    // Check specifically for null, undefined, or empty string
+    if (value === null || value === undefined || value === '') {
+      return 'N/A';
+    }
+    return value;
+  };
+
+  const getUserName = (booking) => {
+    // Enhanced user name detection - check all possible places where user name might be stored
+    if (booking.user_full_name) return booking.user_full_name;
+    if (booking.user_name) return booking.user_name;
+    if (booking.username) return booking.username;
+    if (typeof booking.user === 'string') return booking.user;
+    
+    // Check if user is an object with various name properties
+    if (booking.user && typeof booking.user === 'object') {
+      return booking.user.full_name || 
+             booking.user.name || 
+             booking.user.username || 
+             booking.user.email ||
+             booking.user.first_name && booking.user.last_name ? 
+               `${booking.user.first_name} ${booking.user.last_name}` : 
+               'N/A';
+    }
+    
+    return 'N/A';
+  };
+
+  const getSeatNumber = (booking) => {
+    // Try different possible properties for seat number
+    return displayValue(booking.seat_number || booking.seat || 
+           (booking.seat && booking.seat.number));
   };
 
   return (
@@ -216,36 +258,28 @@ const AdminFlightBookings = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origin</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Departure</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seat</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seat #</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filterBookings(bookings).length ? (
+                {bookings && bookings.length > 0 ? (
                   filterBookings(bookings).map((booking) => (
-                    <tr key={booking.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">{displayValue(booking.user_name)}</td>
+                    <tr key={booking.id || booking.flight_number} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm">{getUserName(booking)}</td>
                       <td className="px-4 py-3 text-sm">{displayValue(booking.flight_number)}</td>
-                      <td className="px-4 py-3 text-sm">{displayValue(booking.flight_airline)}</td>
-                      <td className="px-4 py-3 text-sm">{displayValue(booking.flight_origin)}</td>
-                      <td className="px-4 py-3 text-sm">{displayValue(booking.flight_destination)}</td>
+                      <td className="px-4 py-3 text-sm">{displayValue(booking.airline)}</td>
+                      <td className="px-4 py-3 text-sm">{displayValue(booking.origin)}</td>
+                      <td className="px-4 py-3 text-sm">{displayValue(booking.destination)}</td>
                       <td className="px-4 py-3 text-sm">{formatDate(booking.departure_time)}</td>
-                      <td className="px-4 py-3 text-sm">{displayValue(booking.seat_number)}</td>
-                      <td className="px-4 py-3 text-sm">{formatCurrency(booking.flight_price)}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{getSeatNumber(booking)}</td>
+                      <td className="px-4 py-3 text-sm">{formatCurrency(booking.price)}</td>
                       <td className="px-4 py-3 text-sm">
-                        <select
-                          className={`text-xs border rounded p-1 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${getStatusBadgeStyle(booking.status)}`}
-                          value={booking.status || 'pending'}
-                          onChange={(e) => handleStatusChange(booking.id, e.target.value)}
-                        >
-                          {statusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                            </option>
-                          ))}
-                        </select>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeStyle(booking.status)}`}>
+                          {booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1).replace('_', ' ') : 'Unknown'}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-sm space-x-2">
                         <button
@@ -255,10 +289,21 @@ const AdminFlightBookings = () => {
                         >
                           Cancel
                         </button>
+                        <select
+                          className="text-xs border rounded p-1 mt-1 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          value={booking.status || 'pending'}
+                          onChange={(e) => handleStatusChange(booking.id, e.target.value)}
+                        >
+                          {statusOptions.map((status) => (
+                            <option key={status} value={status}>
+                              {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                            </option>
+                          ))}
+                        </select>
                         {booking.qr_code && (
                           <button
                             onClick={() => window.open(booking.qr_code, '_blank')}
-                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded shadow ml-2"
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded shadow ml-2 mt-1"
                           >
                             View QR
                           </button>
