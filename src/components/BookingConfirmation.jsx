@@ -16,7 +16,7 @@ const BookingConfirmation = () => {
     const fetchBooking = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await axios.get(`http://127.0.0.1:8000/api/bookings/${id}/`, {
+        const response = await axios.get(`https://travel-buddy-7g6f.onrender.com/api/bookings/${id}/`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

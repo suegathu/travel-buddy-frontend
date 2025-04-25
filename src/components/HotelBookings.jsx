@@ -26,7 +26,7 @@ const HotelBookings = () => {
   useEffect(() => {
     const fetchPlaceDetails = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/places/${id}/`, {
+        const res = await fetch(`https://travel-buddy-7g6f.onrender.com/api/places/${id}/`, {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${authTokens?.access}`,

@@ -15,7 +15,7 @@ const EditProfile = () => {
   const [preview, setPreview] = useState(null);
   const { authTokens } = useContext(AuthContext);
   const navigate = useNavigate();
-  const baseUrl = "http://127.0.0.1:8000"; // Add your backend URL here
+  const baseUrl = "https://travel-buddy-7g6f.onrender.com"; // Add your backend URL here
 
   useEffect(() => {
     axiosInstance
