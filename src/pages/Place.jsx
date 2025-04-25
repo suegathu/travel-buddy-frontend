@@ -3,8 +3,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 
-// Define a better default image URL - using a reliable placeholder
-const DEFAULT_PLACE_IMAGE = 'https://placehold.co/300x200?text=No+Image';
+// Define a simple default image URL for fallbacks
+const DEFAULT_PLACE_IMAGE = 'https://images.pexels.com/photos/6267/menu-restaurant-vintage-table.jpg';
 
 const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId, onDataFetched, userPosition }) => {
   const [localPlaces, setLocalPlaces] = useState([]);
@@ -177,14 +177,13 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     setQuickViewPlace(place);
   };
 
-  // Helper function to check if an image URL is valid
-  // In the React component:
-const getValidImageUrl = (imageUrl) => {
-  if (!imageUrl || imageUrl.includes('undefined') || imageUrl === '' || !imageUrl.startsWith('http')) {
-    return DEFAULT_PLACE_IMAGE;
-  }
-  return imageUrl;
-};
+  // Simple function to check if image URL is valid
+  const getValidImageUrl = (imageUrl) => {
+    if (!imageUrl || imageUrl === '' || !imageUrl.startsWith('http')) {
+      return DEFAULT_PLACE_IMAGE;
+    }
+    return imageUrl;
+  };
 
   if (loading) return <div className="text-center mt-10">Loading places...</div>;
 
@@ -279,7 +278,6 @@ const getValidImageUrl = (imageUrl) => {
                 onChange={(e) => setPriceRange([parseInt(e.target.value), priceRange[1]])}
                 className="w-full"
               />
-              <span className="mx-2">to</span>
               <input
                 type="range"
                 min="0"
@@ -292,7 +290,7 @@ const getValidImageUrl = (imageUrl) => {
             </div>
           </div>
           
-          <div className="mb-4">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Rating</label>
             <div className="flex items-center">
               <input
@@ -302,202 +300,180 @@ const getValidImageUrl = (imageUrl) => {
                 step="0.5"
                 value={minRating}
                 onChange={(e) => setMinRating(parseFloat(e.target.value))}
-                className="w-full mr-4"
+                className="w-full"
               />
-              <span>{minRating} ⭐</span>
+              <span className="ml-2">{minRating} ★</span>
             </div>
           </div>
-
-          <button
-            onClick={filterPlaces}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
-          >
-            Apply Filters
-          </button>
+          
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => {
+                setPriceRange([0, 500]);
+                setMinRating(0);
+                setSortBy('recommended');
+                filterPlaces();
+              }}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg mr-2 transition"
+            >
+              Reset Filters
+            </button>
+            <button
+              onClick={() => {
+                setShowFilters(false);
+                filterPlaces();
+              }}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+            >
+              Apply Filters
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Results Info */}
-      <div className="mb-4 text-gray-600">
-        {localFilteredPlaces.length} {localFilteredPlaces.length === 1 ? 'place' : 'places'} found
-        {activeSearch && <span> for "<strong>{activeSearch}</strong>"</span>}
-        {selectedType !== 'all' && selectedType !== 'favorites' && <span> in <strong>{selectedType}s</strong></span>}
-        {selectedType === 'favorites' && <span> in <strong>Favorites</strong></span>}
-      </div>
-
-      {/* Places List - Modified to display 2 columns instead of 3 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-6">
-        {localFilteredPlaces.length > 0 ? (
-          localFilteredPlaces.map((place) => (
+      {/* Place Cards - Changed to display in 2 columns instead of 3 */}
+      {localFilteredPlaces.length === 0 ? (
+        <div className="text-center mt-10 p-6 bg-gray-50 rounded-lg">
+          <h3 className="text-xl font-semibold text-gray-700">No places found</h3>
+          <p className="text-gray-500 mt-2">Try adjusting your search or filters</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {localFilteredPlaces.map((place) => (
             <div
               key={place.id}
-              className={`bg-white rounded-2xl shadow-md p-4 flex flex-col justify-between transition relative ${
-                hoveredPlaceId === place.id ? 'ring-2 ring-blue-500 shadow-lg' : 'hover:shadow-lg'
+              className={`bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg cursor-pointer ${
+                hoveredPlaceId === place.id ? 'transform scale-[1.02]' : ''
               }`}
+              onClick={() => handleActionClick(place)}
               onMouseEnter={() => handleMouseEnter(place.id)}
               onMouseLeave={handleMouseLeave}
             >
-              <button
-                onClick={(e) => toggleFavorite(place.id, e)}
-                className="absolute top-2 right-2 bg-white bg-opacity-70 p-2 rounded-full hover:bg-opacity-100 transition z-10"
-                aria-label={favorites.includes(place.id) ? "Remove from favorites" : "Add to favorites"}
-              >
-                {favorites.includes(place.id) ? (
-                  <span className="text-red-500">❤️</span>
-                ) : (
-                  <span className="text-gray-400">🤍</span>
-                )}
-              </button>
-              
-              <img
-                src={getValidImageUrl(place.image_url)}
-                alt={place.name}
-                className="h-40 w-full object-cover rounded-xl mb-4"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = DEFAULT_PLACE_IMAGE;
-                }}
-              />
-              <div className="flex-grow">
-                <h3 className="text-lg font-semibold mb-1">{place.name}</h3>
-                <p className="text-gray-500 text-sm mb-2">
-                  {place.location || place.address || 'No location'}
-                </p>
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-yellow-500 text-sm">⭐ {place.rating || '4.0'} / 5.0</p>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      place.place_type === 'hotel'
-                        ? 'bg-blue-100 text-blue-800'
-                        : place.place_type === 'restaurant'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-purple-100 text-purple-800'
-                    }`}
-                  >
-                    {place.place_type?.charAt(0).toUpperCase() + place.place_type?.slice(1)}
-                  </span>
+              <div className="relative h-48">
+                <img
+                  src={getValidImageUrl(place.image_url)}
+                  alt={place.name}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  onClick={(e) => toggleFavorite(place.id, e)}
+                  className="absolute top-2 right-2 p-2 bg-white bg-opacity-80 rounded-full shadow hover:bg-opacity-100 transition"
+                >
+                  {favorites.includes(place.id) ? (
+                    <span className="text-red-500">❤️</span>
+                  ) : (
+                    <span className="text-gray-400">🤍</span>
+                  )}
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 text-white p-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold">{place.place_type}</span>
+                    <span className="bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold">
+                      {place.rating ? `${place.rating} ★` : 'No rating'}
+                    </span>
+                  </div>
                 </div>
-                <p className="text-blue-600 font-semibold mb-3">
-                  ${typeof place.price === 'number' ? place.price.toFixed(2) : place.price || '0.00'}
-                </p>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={(e) => handleQuickView(place, e)}
-                  className="text-gray-600 py-2 px-4 rounded-xl text-sm mt-2 bg-gray-100 hover:bg-gray-200 flex-grow"
-                >
-                  Quick View
-                </button>
-                <button
-                  onClick={() => handleActionClick(place)}
-                  className={`text-white py-2 px-4 rounded-xl text-sm mt-2 flex-grow ${
-                    place.place_type === 'hotel'
-                      ? 'bg-blue-500 hover:bg-blue-600'
-                      : place.place_type === 'restaurant'
-                      ? 'bg-green-500 hover:bg-green-600'
-                      : 'bg-purple-500 hover:bg-purple-600'
-                  }`}
-                >
-                  {place.place_type === 'hotel'
-                    ? 'Book Now'
-                    : place.place_type === 'restaurant'
-                    ? 'Reserve'
-                    : 'Get Ticket'}
-                </button>
+              <div className="p-4">
+                <h3 className="text-lg font-semibold mb-1">{place.name}</h3>
+                <p className="text-gray-600 text-sm mb-2">
+                  {place.address || "No address available"}
+                </p>
+                <div className="flex flex-col mt-4">
+                  <span className="font-bold text-lg text-blue-600 mb-2">
+                    ${parseFloat(place.price).toFixed(2)}
+                  </span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={(e) => handleQuickView(place, e)}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-sm transition"
+                    >
+                      Quick View
+                    </button>
+                    <button
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm transition"
+                    >
+                      {place.place_type === 'hotel' ? 'Book' : place.place_type === 'restaurant' ? 'Reserve' : 'Get Tickets'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="col-span-full text-center text-gray-500 py-10">
-            No places found matching your search criteria. Try adjusting your filters.
-          </div>
-        )}
-      </div>
-      
+          ))}
+        </div>
+      )}
+
       {/* Quick View Modal */}
       {quickViewPlace && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setQuickViewPlace(null)}>
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">{quickViewPlace.name}</h2>
-              <button onClick={() => setQuickViewPlace(null)} className="text-gray-500 hover:text-gray-700">
-                ✕
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="relative h-64">
+              <img
+                src={getValidImageUrl(quickViewPlace.image_url)}
+                alt={quickViewPlace.name}
+                className="w-full h-full object-cover"
+              />
+              <button
+                onClick={() => setQuickViewPlace(null)}
+                className="absolute top-2 right-2 p-2 bg-white bg-opacity-80 rounded-full shadow hover:bg-opacity-100 transition"
+              >
+                <span className="text-gray-600">✕</span>
               </button>
             </div>
-            
-            <img
-              src={getValidImageUrl(quickViewPlace.image_url)}
-              alt={quickViewPlace.name}
-              className="w-full h-64 object-cover rounded-lg mb-4"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = DEFAULT_PLACE_IMAGE;
-              }}
-            />
-            
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <p className="text-gray-600 font-semibold">Location</p>
-                <p>{quickViewPlace.location || quickViewPlace.address || 'No location'}</p>
+
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold">{quickViewPlace.name}</h2>
+                  <p className="text-gray-600">{quickViewPlace.address}</p>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="bg-yellow-400 text-black px-3 py-1 rounded-full font-bold">
+                    {quickViewPlace.rating ? `${quickViewPlace.rating} ★` : 'No rating'}
+                  </span>
+                  <span className="font-bold text-blue-600 text-xl mt-2">
+                    ${parseFloat(quickViewPlace.price).toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-600 font-semibold">Type</p>
-                <p className="capitalize">{quickViewPlace.place_type}</p>
+
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold mb-2">Details</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-gray-600">Type:</div>
+                  <div className="font-semibold capitalize">{quickViewPlace.place_type}</div>
+                  <div className="text-gray-600">City:</div>
+                  <div className="font-semibold">{quickViewPlace.city || 'Not specified'}</div>
+                  <div className="text-gray-600">Coordinates:</div>
+                  <div className="font-semibold">
+                    {quickViewPlace.latitude?.toFixed(4)}, {quickViewPlace.longitude?.toFixed(4)}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-gray-600 font-semibold">Rating</p>
-                <p>⭐ {quickViewPlace.rating || '4.0'} / 5.0</p>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    toggleFavorite(quickViewPlace.id, { stopPropagation: () => {} });
+                    setQuickViewPlace({
+                      ...quickViewPlace,
+                      isFavorite: !favorites.includes(quickViewPlace.id)
+                    });
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
+                >
+                  {favorites.includes(quickViewPlace.id) ? 'Remove from Favorites' : 'Add to Favorites'}
+                </button>
+                <button
+                  onClick={() => {
+                    handleActionClick(quickViewPlace);
+                    setQuickViewPlace(null);
+                  }}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+                >
+                  {quickViewPlace.place_type === 'hotel' ? 'Book Now' : quickViewPlace.place_type === 'restaurant' ? 'Make Reservation' : 'Buy Tickets'}
+                </button>
               </div>
-              <div>
-                <p className="text-gray-600 font-semibold">Price</p>
-                <p className="text-blue-600 font-semibold">
-                  ${typeof quickViewPlace.price === 'number' ? quickViewPlace.price.toFixed(2) : quickViewPlace.price || '0.00'}
-                </p>
-              </div>
-            </div>
-            
-            <p className="text-gray-600 font-semibold mb-1">Description</p>
-            <p className="mb-4">{quickViewPlace.description || 'No description available for this place.'}</p>
-            
-            <div className="flex justify-between">
-              <button
-                onClick={(e) => {
-                  toggleFavorite(quickViewPlace.id, e);
-                }}
-                className="flex items-center text-gray-700 py-2 px-4 rounded-xl bg-gray-100 hover:bg-gray-200"
-              >
-                {favorites.includes(quickViewPlace.id) ? (
-                  <>
-                    <span className="text-red-500 mr-2">❤️</span> 
-                    <span>Remove from favorites</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-gray-400 mr-2">🤍</span>
-                    <span>Add to favorites</span>
-                  </>
-                )}
-              </button>
-              
-              <button
-                onClick={() => {
-                  handleActionClick(quickViewPlace);
-                  setQuickViewPlace(null);
-                }}
-                className={`text-white py-2 px-6 rounded-xl ${
-                  quickViewPlace.place_type === 'hotel'
-                    ? 'bg-blue-500 hover:bg-blue-600'
-                    : quickViewPlace.place_type === 'restaurant'
-                    ? 'bg-green-500 hover:bg-green-600'
-                    : 'bg-purple-500 hover:bg-purple-600'
-                }`}
-              >
-                {quickViewPlace.place_type === 'hotel'
-                  ? 'Book Now'
-                  : quickViewPlace.place_type === 'restaurant'
-                  ? 'Reserve'
-                  : 'Get Ticket'}
-              </button>
             </div>
           </div>
         </div>
