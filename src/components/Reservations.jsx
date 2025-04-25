@@ -91,7 +91,7 @@ const Reservations = () => {
         booking_date: formData.booking_date,
       };
       
-      const response = await fetch("http://localhost:8000/api/bookings/", {
+      const response = await fetch("https://travel-buddy-7g6f.onrender.com/api/bookings/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -46,7 +46,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
 
       try {
         // Add refresh=true to ensure all places have prices and images
-        const response = await axios.get('/api/places/?refresh=true', getAuthHeaders());
+        const response = await axios.get('https://travel-buddy-7g6f.onrender.com/api/places/?refresh=true', getAuthHeaders());
         const data = Array.isArray(response.data) ? response.data : response.data.results || [];
         
         // Add mock coordinates for testing if they don't exist

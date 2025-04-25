@@ -11,7 +11,7 @@ const MyTickets = () => {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/bookings/my/', {
+        const response = await fetch('https://travel-buddy-7g6f.onrender.com/api/bookings/my/', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
