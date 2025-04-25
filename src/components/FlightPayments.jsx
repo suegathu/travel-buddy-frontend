@@ -19,6 +19,9 @@ import {
   Divider,
 } from '@mui/material';
 
+// Define backend API URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://travel-buddy-7g6f.onrender.com';
+
 const FlightPayment = () => {
   const { authTokens, user } = useContext(AuthContext);
   const location = useLocation();
@@ -81,7 +84,7 @@ const FlightPayment = () => {
       const date = new Date(dateTimeStr);
       return date.toLocaleString();
     } catch (err) {
-      return dateTimeStr;
+      return dateTimeStr, err;
     }
   };
 
@@ -185,7 +188,8 @@ const FlightPayment = () => {
         'Content-Type': 'application/json',
       };
       
-      const initRes = await axios.post('/api/paystack/initialize/', {
+      // Updated to use the API_BASE_URL
+      const initRes = await axios.post(`${API_BASE_URL}/api/paystack/initialize/`, {
         email,
         amount: paymentAmount,
         reference,
@@ -212,7 +216,8 @@ const FlightPayment = () => {
         'Content-Type': 'application/json',
       };
       
-      const res = await axios.post('/api/paystack/mpesa/', {
+      // Updated to use the API_BASE_URL
+      const res = await axios.post(`${API_BASE_URL}/api/paystack/mpesa/`, {
         phone,
         email,
         amount: paymentAmount,
@@ -240,13 +245,14 @@ const FlightPayment = () => {
         Authorization: `Bearer ${authTokens?.access}`
       };
       
-      const response = await axios.get(`/api/status/${ref}/`, { headers });
+      // Updated to use the API_BASE_URL
+      const response = await axios.get(`${API_BASE_URL}/api/status/${ref}/`, { headers });
       
       if (response.data.status === 'success') {
         setPaymentStatus('success');
         setStatus('Payment completed successfully!');
         setTimeout(() => {
-            navigate('flight-booking')
+            navigate('/flight-booking');
         }, 2000);
       } else if (response.data.status === 'failed') {
         setPaymentStatus('failed');
@@ -270,7 +276,8 @@ const FlightPayment = () => {
           Authorization: `Bearer ${authTokens?.access}`
         };
         
-        const response = await axios.get(`/api/status/${ref}/`, { headers });
+        // Updated to use the API_BASE_URL
+        const response = await axios.get(`${API_BASE_URL}/api/status/${ref}/`, { headers });
         
         if (response.data.status === 'success') {
           clearInterval(pollInterval);
