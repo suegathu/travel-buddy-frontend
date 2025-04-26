@@ -130,7 +130,7 @@ const PaymentForm = () => {
         'Content-Type': 'application/json',
       };
       
-      const initRes = await axios.post('/api/paystack/initialize/', {
+      const initRes = await axios.post('https://travel-buddy-7g6f.onrender.com/api/paystack/initialize/', {
         email,
         amount,
         reference,
@@ -157,7 +157,7 @@ const PaymentForm = () => {
         'Content-Type': 'application/json',
       };
       
-      const res = await axios.post('/api/paystack/mpesa/', {
+      const res = await axios.post('https://travel-buddy-7g6f.onrender.com/api/paystack/mpesa/', {
         phone,
         email,
         amount,
@@ -185,7 +185,7 @@ const PaymentForm = () => {
         Authorization: `Bearer ${authTokens?.access}`
       };
       
-      const response = await axios.get(`/api/status/${ref}/`, { headers });
+      const response = await axios.get(`https://travel-buddy-7g6f.onrender.com/api/status/${ref}/`, { headers });
       
       if (response.data.status === 'success') {
         setPaymentStatus('success');
@@ -215,7 +215,7 @@ const PaymentForm = () => {
           Authorization: `Bearer ${authTokens?.access}`
         };
         
-        const response = await axios.get(`/api/status/${ref}/`, { headers });
+        const response = await axios.get(`https://travel-buddy-7g6f.onrender.com/api/status/${ref}/`, { headers });
         
         if (response.data.status === 'success') {
           clearInterval(pollInterval);
