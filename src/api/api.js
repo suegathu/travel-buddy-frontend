@@ -1,13 +1,13 @@
 // api.js
 import axios from "axios";
 
-// Get API base URL from environment or default to localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Set the base URL to the provided render.com URL
+const API_BASE_URL = "https://travel-buddy-7g6f.onrender.com";
 
 // Create Axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL + "/api/flights",
-  timeout: 5000,
+  timeout: 10000, // Increased timeout for potentially slow responses
   headers: {
     "Content-Type": "application/json",
   },
@@ -17,7 +17,9 @@ const apiClient = axios.create({
 const handleError = (error) => {
   console.error("API Error:", error);
   if (error.response) {
-    return { error: error.response.data.detail || "Something went wrong" };
+    return { error: error.response.data.detail || error.response.data.error || "Something went wrong" };
+  } else if (error.request) {
+    return { error: "Server didn't respond. Please try again later." };
   } else {
     return { error: "Network error. Please try again." };
   }
@@ -37,22 +39,27 @@ const getAuthHeaders = () => {
 
 // Main API methods
 const api = {
-  searchFlights: async (from, to) => {
+  searchFlights: async (from, to, date) => {
     try {
+      console.log(`Searching flights from ${from} to ${to} on ${date}`);
       const response = await apiClient.get("/fetch-flights/", {
         params: { dep_iata: from, arr_iata: to },
       });
 
-      if (Array.isArray(response.data)) {
-        return response.data.map((flight) => ({
-          flight_number: flight.flight_number,
-          airline: flight.airline,
-          departure_airport: flight.departure_airport,
-          arrival_airport: flight.arrival_airport,
-          departure_time: flight.departure_time,
-          arrival_time: flight.arrival_time,
-          status: flight.status,
-        }));
+      console.log("Raw API response:", response.data);
+      
+      // If the response is an object with a 'results' property, use that
+      if (response.data && response.data.results) {
+        return response.data.results;
+      }
+      // If the response is directly an array, use it
+      else if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      // If the response is an object but not in the expected format
+      else if (typeof response.data === 'object' && response.data !== null) {
+        // Return as an array with the single object
+        return [response.data];
       } else {
         console.error("Unexpected response format:", response.data);
         return [];
@@ -93,7 +100,7 @@ const api = {
 
   fetchFlightDetails: async (flightId) => {
     try {
-      const response = await apiClient.get(`/flights/${flightId}/`, {
+      const response = await apiClient.get(`/flight-details/${flightId}/`, {
         headers: getAuthHeaders()
       });
       return response.data;
@@ -128,7 +135,7 @@ const api = {
 
   getAvailableSeats: async (flightNumber) => {
     try {
-      const response = await apiClient.get(`/flights/${flightNumber}/available-seats/`, {
+      const response = await apiClient.get(`/get-available-seats/${flightNumber}/`, {
         headers: getAuthHeaders() // Add auth headers to the request
       });
       return response.data;
@@ -140,7 +147,7 @@ const api = {
 
   getBookingDetails: async (bookingId) => {
     try {
-      const response = await apiClient.get(`/bookings/${bookingId}/`, {
+      const response = await apiClient.get(`/booking-details/${bookingId}/`, {
         headers: getAuthHeaders() // Add auth headers to the request
       });
       return response.data;
@@ -151,7 +158,7 @@ const api = {
 
   getMyBookings: async () => {
     try {
-      const response = await apiClient.get("/my-bookings/", {
+      const response = await apiClient.get("/my-flight-bookings/", {
         headers: getAuthHeaders() // Add auth headers to the request
       });
       return response.data;
@@ -162,7 +169,7 @@ const api = {
 
   cancelBooking: async (bookingId) => {
     try {
-      const response = await apiClient.patch(`/bookings/${bookingId}/cancel/`, {}, {
+      const response = await apiClient.patch(`/cancel-flight-booking/${bookingId}/`, {}, {
         headers: getAuthHeaders() // Add auth headers to the request
       });
       return {
