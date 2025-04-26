@@ -19,7 +19,7 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // First handle the authentication
+      // Use the loginUser function from AuthContext
       const result = await loginUser(username, password, userType);
       
       if (result) {
@@ -36,7 +36,15 @@ const Login = () => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setLoginStatus(`Login error: ${error.message || "Unknown error"}`);
+      // More informative error message using response data if available
+      if (error.response && error.response.data) {
+        const errorMsg = typeof error.response.data === 'object' 
+          ? Object.values(error.response.data).flat().join(', ')
+          : error.response.data;
+        setLoginStatus(`Login failed: ${errorMsg}`);
+      } else {
+        setLoginStatus(`Login error: ${error.message || "Unknown error"}`);
+      }
     } finally {
       setIsLoading(false);
     }

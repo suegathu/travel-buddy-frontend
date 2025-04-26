@@ -2,13 +2,16 @@ import { createContext, useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 
-// Create a base URL that changes based on environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// API URL should always point to your backend, not frontend
+// VITE_API_URL in .env should be set to your backend Render URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://travel-buddy-7g6f.onrender.com";
+
+console.log("Using API URL:", API_BASE_URL); // Helpful for debugging
 
 // Create an axios instance with base URL
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 5000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   }
@@ -60,7 +63,7 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      return false;
+      throw error; // Throw the error so the Login component can handle it
     }
   };
   
@@ -83,7 +86,7 @@ export const AuthProvider = ({ children }) => {
         return Promise.reject(error);
       }
     );
-
+    
     return () => {
       // Clean up interceptor when component unmounts
       api.interceptors.request.eject(requestInterceptor);

@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import AuthContext from "../context/AuthContext";
 
 const Register = () => {
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [registerStatus, setRegisterStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  const { api } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -21,19 +21,27 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      await axios.post(`${API_BASE_URL}/api/users/register/`, form);
-      setRegisterStatus("Registration successful!");
-      setTimeout(() => {
-        navigate("/"); // Navigate after success
-      }, 1500);
+      // Use the api instance from AuthContext
+      const response = await api.post("/api/users/register/", form);
+      
+      if (response.status === 201 || response.status === 200) {
+        setRegisterStatus("Registration successful!");
+        setTimeout(() => {
+          navigate("/"); // Navigate to login after success
+        }, 1500);
+      } else {
+        setRegisterStatus("Registration failed. Please try again.");
+      }
     } catch (err) {
       console.error("Registration error:", err);
       if (err.response && err.response.data) {
         // Display more specific error message from API if available
-        const errorMsg = Object.values(err.response.data).flat().join(', ');
+        const errorMsg = typeof err.response.data === 'object'
+          ? Object.values(err.response.data).flat().join(', ')
+          : err.response.data;
         setRegisterStatus(`Registration failed: ${errorMsg}`);
       } else {
-        setRegisterStatus("Registration failed. Please try again.");
+        setRegisterStatus(`Registration failed: ${err.message || "Please try again."}`);
       }
     } finally {
       setIsLoading(false);

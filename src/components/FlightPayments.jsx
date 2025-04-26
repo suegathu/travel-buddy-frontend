@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import {
   Container,
@@ -19,11 +18,8 @@ import {
   Divider,
 } from '@mui/material';
 
-// Define backend API URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://travel-buddy-7g6f.onrender.com';
-
 const FlightPayment = () => {
-  const { authTokens, user } = useContext(AuthContext);
+  const { authTokens, user, api } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -84,7 +80,7 @@ const FlightPayment = () => {
       const date = new Date(dateTimeStr);
       return date.toLocaleString();
     } catch (err) {
-      return dateTimeStr, err;
+      return dateTimeStr;
     }
   };
 
@@ -183,18 +179,13 @@ const FlightPayment = () => {
 
   const processDirectCardPayment = async () => {
     try {
-      const headers = {
-        Authorization: `Bearer ${authTokens?.access}`,
-        'Content-Type': 'application/json',
-      };
-      
-      // Updated to use the API_BASE_URL
-      const initRes = await axios.post(`${API_BASE_URL}/api/paystack/initialize/`, {
+      // Using the api instance from context which already includes auth headers
+      const initRes = await api.post("/api/paystack/initialize/", {
         email,
         amount: paymentAmount,
         reference,
         booking_id: bookingId
-      }, { headers });
+      });
       
       if (initRes.status === 200) {
         initiatePaystackPayment();
@@ -211,19 +202,14 @@ const FlightPayment = () => {
 
   const processMpesaPayment = async () => {
     try {
-      const headers = {
-        Authorization: `Bearer ${authTokens?.access}`,
-        'Content-Type': 'application/json',
-      };
-      
-      // Updated to use the API_BASE_URL
-      const res = await axios.post(`${API_BASE_URL}/api/paystack/mpesa/`, {
+      // Using the api instance from context which already includes auth headers
+      const res = await api.post("/api/paystack/mpesa/", {
         phone,
         email,
         amount: paymentAmount,
         reference,
         booking_id: bookingId
-      }, { headers });
+      });
       
       if (res.status === 200) {
         setStatus('STK Push sent to your phone. Please complete the payment.');
@@ -241,12 +227,8 @@ const FlightPayment = () => {
 
   const verifyPayment = async (ref) => {
     try {
-      const headers = {
-        Authorization: `Bearer ${authTokens?.access}`
-      };
-      
-      // Updated to use the API_BASE_URL
-      const response = await axios.get(`${API_BASE_URL}/api/status/${ref}/`, { headers });
+      // Using the api instance from context which already includes auth headers
+      const response = await api.get(`/api/status/${ref}/`);
       
       if (response.data.status === 'success') {
         setPaymentStatus('success');
@@ -272,12 +254,8 @@ const FlightPayment = () => {
   const startPolling = (ref) => {
     const pollInterval = setInterval(async () => {
       try {
-        const headers = {
-          Authorization: `Bearer ${authTokens?.access}`
-        };
-        
-        // Updated to use the API_BASE_URL
-        const response = await axios.get(`${API_BASE_URL}/api/status/${ref}/`, { headers });
+        // Using the api instance from context which already includes auth headers
+        const response = await api.get(`/api/status/${ref}/`);
         
         if (response.data.status === 'success') {
           clearInterval(pollInterval);
