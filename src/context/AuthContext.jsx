@@ -11,7 +11,7 @@ console.log("Using API URL:", API_BASE_URL); // Helpful for debugging
 // Create an axios instance with base URL
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   }
