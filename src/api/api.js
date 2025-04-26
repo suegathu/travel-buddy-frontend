@@ -135,7 +135,7 @@ const api = {
 
   getAvailableSeats: async (flightNumber) => {
     try {
-      const response = await apiClient.get(`/get-available-seats/${flightNumber}/`, {
+      const response = await apiClient.get(`/flights/${flightNumber}/available-seats/`, {
         headers: getAuthHeaders() // Add auth headers to the request
       });
       return response.data;
