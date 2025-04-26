@@ -26,6 +26,11 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState('recommended');
   const [quickViewPlace, setQuickViewPlace] = useState(null);
+  const [placeTypeStats, setPlaceTypeStats] = useState({
+    hotel: 0,
+    restaurant: 0,
+    attraction: 0
+  });
   
   const navigate = useNavigate();
   const { authTokens } = useContext(AuthContext);
@@ -45,16 +50,27 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       }
 
       try {
-        // Add refresh=true to ensure all places have prices and images
+        // Fetch all place types in one request with refresh=true
         const response = await axios.get('https://travel-buddy-7g6f.onrender.com/api/places/?refresh=true', getAuthHeaders());
         const data = Array.isArray(response.data) ? response.data : response.data.results || [];
         
         // Add mock coordinates for testing if they don't exist
-        const placesWithCoordinates = data.map((place, index) => ({
+        const placesWithCoordinates = data.map((place) => ({
           ...place,
           latitude: place.latitude || (userPosition?.[0] + (Math.random() * 0.01 - 0.005)),
           longitude: place.longitude || (userPosition?.[1] + (Math.random() * 0.01 - 0.005)),
+          // Ensure place_type is always defined
+          place_type: place.place_type || place.category || 'hotel',
         }));
+
+        // Log counts for debugging
+        const typeCount = {
+          hotel: placesWithCoordinates.filter(p => p.place_type === 'hotel').length,
+          restaurant: placesWithCoordinates.filter(p => p.place_type === 'restaurant').length,
+          attraction: placesWithCoordinates.filter(p => p.place_type === 'attraction').length
+        };
+        console.log('Place type counts:', typeCount);
+        setPlaceTypeStats(typeCount);
         
         setLocalPlaces(placesWithCoordinates);
         setLocalFilteredPlaces(placesWithCoordinates);
@@ -72,20 +88,31 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
 
     if (userPosition) {
       fetchPlaces();
+    } else {
+      console.warn('User position not available, unable to fetch places');
     }
   }, [authTokens, userPosition, setPlaces, setFilteredPlaces, onDataFetched]);
 
   useEffect(() => {
     filterPlaces();
-  }, [activeSearch, selectedType, localPlaces, minRating]);
+  }, [activeSearch, selectedType, localPlaces, minRating, priceRange, sortBy]);
 
   const filterPlaces = () => {
+    if (!localPlaces || localPlaces.length === 0) return;
+    
     let results = [...localPlaces];
+    console.log(`Filtering ${results.length} places with type: ${selectedType}`);
 
+    // Special case for favorites
     if (selectedType === 'favorites') {
       results = results.filter((place) => favorites.includes(place.id));
-    } else if (selectedType !== 'all') {
-      results = results.filter((place) => place.place_type === selectedType);
+    } 
+    // Filter by place type if not "all"
+    else if (selectedType !== 'all') {
+      results = results.filter((place) => {
+        const placeType = place.place_type || place.category;
+        return placeType === selectedType;
+      });
     }
 
     // Add price filter
@@ -118,6 +145,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       results.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
     }
 
+    console.log(`Filter resulted in ${results.length} places`);
     setLocalFilteredPlaces(results);
     
     // For Dashboard component
@@ -138,13 +166,14 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
   const handleKeyPress = (e) => e.key === 'Enter' && handleSearch();
 
   const handleActionClick = (place) => {
+    const placeType = place.place_type || place.category;
     const routeMap = {
       hotel: `/bookings/hotel/${place.id}`,
       restaurant: `/reservations/restaurant/${place.id}`,
       attraction: `/tickets/attraction/${place.id}`,
     };
 
-    navigate(routeMap[place.place_type], {
+    navigate(routeMap[placeType], {
       state: {
         selectedPlace: place, // always pass full place object
         selectedPrice: place.price, // pass price separately too
@@ -233,19 +262,16 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
             onChange={(e) => setSelectedType(e.target.value)}
             className="min-w-[120px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">All Places</option>
-            <option value="hotel">Hotels</option>
-            <option value="restaurant">Restaurants</option>
-            <option value="attraction">Attractions</option>
-            <option value="favorites">Favorites</option>
+            <option value="all">All Places ({localPlaces.length})</option>
+            <option value="hotel">Hotels ({placeTypeStats.hotel})</option>
+            <option value="restaurant">Restaurants ({placeTypeStats.restaurant})</option>
+            <option value="attraction">Attractions ({placeTypeStats.attraction})</option>
+            <option value="favorites">Favorites ({favorites.length})</option>
           </select>
           
           <select
             value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value);
-              filterPlaces();
-            }}
+            onChange={(e) => setSortBy(e.target.value)}
             className="min-w-[150px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="recommended">Recommended</option>
@@ -312,7 +338,6 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 setPriceRange([0, 500]);
                 setMinRating(0);
                 setSortBy('recommended');
-                filterPlaces();
               }}
               className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg mr-2 transition"
             >
@@ -321,7 +346,6 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
             <button
               onClick={() => {
                 setShowFilters(false);
-                filterPlaces();
               }}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
             >
@@ -331,11 +355,24 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
         </div>
       )}
 
+      {/* Debug Info - Can be removed in production */}
+      {localPlaces.length === 0 && !loading && (
+        <div className="bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200">
+          <h3 className="text-yellow-800 font-semibold">No places loaded from the server</h3>
+          <p className="text-yellow-700">This could be due to an API error or missing user location.</p>
+        </div>
+      )}
+
       {/* Place Cards - Changed to display in 2 columns instead of 3 */}
       {localFilteredPlaces.length === 0 ? (
         <div className="text-center mt-10 p-6 bg-gray-50 rounded-lg">
           <h3 className="text-xl font-semibold text-gray-700">No places found</h3>
           <p className="text-gray-500 mt-2">Try adjusting your search or filters</p>
+          {selectedType !== 'all' && (
+            <p className="text-blue-500 mt-3 cursor-pointer" onClick={() => setSelectedType('all')}>
+              Show all places instead
+            </p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -367,7 +404,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 </button>
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 text-white p-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold">{place.place_type}</span>
+                    <span className="font-bold capitalize">{place.place_type || place.category}</span>
                     <span className="bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold">
                       {place.rating ? `${place.rating} ★` : 'No rating'}
                     </span>
@@ -377,11 +414,11 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
               <div className="p-4">
                 <h3 className="text-lg font-semibold mb-1">{place.name}</h3>
                 <p className="text-gray-600 text-sm mb-2">
-                  {place.address || "No address available"}
+                  {place.address || place.city || "No address available"}
                 </p>
                 <div className="flex flex-col mt-4">
                   <span className="font-bold text-lg text-blue-600 mb-2">
-                    ${parseFloat(place.price).toFixed(2)}
+                    ${parseFloat(place.price || 0).toFixed(2)}
                   </span>
                   <div className="flex space-x-2">
                     <button
@@ -393,7 +430,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                     <button
                       className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm transition"
                     >
-                      {place.place_type === 'hotel' ? 'Book' : place.place_type === 'restaurant' ? 'Reserve' : 'Get Tickets'}
+                      {(place.place_type || place.category) === 'hotel' ? 'Book' : 
+                       (place.place_type || place.category) === 'restaurant' ? 'Reserve' : 'Get Tickets'}
                     </button>
                   </div>
                 </div>
@@ -425,14 +463,14 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h2 className="text-2xl font-bold">{quickViewPlace.name}</h2>
-                  <p className="text-gray-600">{quickViewPlace.address}</p>
+                  <p className="text-gray-600">{quickViewPlace.address || quickViewPlace.city || "Location unknown"}</p>
                 </div>
                 <div className="flex flex-col items-end">
                   <span className="bg-yellow-400 text-black px-3 py-1 rounded-full font-bold">
                     {quickViewPlace.rating ? `${quickViewPlace.rating} ★` : 'No rating'}
                   </span>
                   <span className="font-bold text-blue-600 text-xl mt-2">
-                    ${parseFloat(quickViewPlace.price).toFixed(2)}
+                    ${parseFloat(quickViewPlace.price || 0).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -441,7 +479,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 <h3 className="text-lg font-semibold mb-2">Details</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-gray-600">Type:</div>
-                  <div className="font-semibold capitalize">{quickViewPlace.place_type}</div>
+                  <div className="font-semibold capitalize">{quickViewPlace.place_type || quickViewPlace.category}</div>
                   <div className="text-gray-600">City:</div>
                   <div className="font-semibold">{quickViewPlace.city || 'Not specified'}</div>
                   <div className="text-gray-600">Coordinates:</div>
@@ -471,7 +509,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                   }}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
                 >
-                  {quickViewPlace.place_type === 'hotel' ? 'Book Now' : quickViewPlace.place_type === 'restaurant' ? 'Make Reservation' : 'Buy Tickets'}
+                  {(quickViewPlace.place_type || quickViewPlace.category) === 'hotel' ? 'Book Now' : 
+                   (quickViewPlace.place_type || quickViewPlace.category) === 'restaurant' ? 'Make Reservation' : 'Buy Tickets'}
                 </button>
               </div>
             </div>
