@@ -4,7 +4,7 @@ import axios from "axios";
 
 // API URL should always point to your backend, not frontend
 // VITE_API_URL in .env should be set to your backend Render URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://travel-buddy-7g6f.onrender.com";
+const API_BASE_URL = "https://travel-buddy-7g6f.onrender.com";
 
 console.log("Using API URL:", API_BASE_URL); // Helpful for debugging
 
