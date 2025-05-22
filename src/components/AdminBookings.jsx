@@ -21,7 +21,7 @@ const AdminBookings = () => {
         return;
       }
 
-      const response = await fetch('https://travel-buddy-7g6f.onrender.com/api/admin/bookings/', {
+      const response = await fetch('https://travel-buddy-backend-8kf4.onrender.com/api/admin/bookings/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ const AdminBookings = () => {
     try {
       if (!authTokens?.access) return;
 
-      const response = await fetch(`https://travel-buddy-7g6f.onrender.com/api/admin/bookings/${id}/`, {
+      const response = await fetch(`https://travel-buddy-backend-8kf4.onrender.com/api/admin/bookings/${id}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -79,7 +79,7 @@ const AdminBookings = () => {
     try {
       if (!authTokens?.access) return;
   
-      const response = await fetch(`https://travel-buddy-7g6f.onrender.com/api/admin/bookings/${id}/delete/`, {
+      const response = await fetch(`https://travel-buddy-backend-8kf4.onrender.com/api/admin/bookings/${id}/delete/`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

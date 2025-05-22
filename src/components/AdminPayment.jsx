@@ -29,7 +29,7 @@ const AdminPayments = () => {
         return;
       }
 
-      const response = await fetch('https://travel-buddy-7g6f.onrender.com/api/payments/all/', {
+      const response = await fetch('https://travel-buddy-backend-8kf4.onrender.com/api/payments/all/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -59,7 +59,7 @@ const AdminPayments = () => {
     try {
       if (!authTokens?.access) return;
 
-      const response = await fetch(`https://travel-buddy-7g6f.onrender.com/api/payments/${id}/status/`, {
+      const response = await fetch(`https://travel-buddy-backend-8kf4.onrender.com/api/payments/${id}/status/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

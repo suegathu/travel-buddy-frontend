@@ -166,7 +166,7 @@ const MyFlightBookings = () => {
                 <div className="mt-3">
                   <p className="text-sm text-gray-600">QR Code for Check-in:</p>
                   <img
-                    src={`https://travel-buddy-7g6f.onrender.com${booking.qr_code}`}
+                    src={`https://travel-buddy-backend-8kf4.onrender.com${booking.qr_code}`}
                     alt="Flight QR Code"
                     className="w-32 h-32 mt-2"
                   />

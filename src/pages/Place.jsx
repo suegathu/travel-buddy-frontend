@@ -1,15 +1,20 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 
-// Define a simple default image URL for fallbacks
+// Constants
+const API_BASE_URL = "https://travel-buddy-backend-8kf4.onrender.com/api";
 const DEFAULT_PLACE_IMAGE = 'https://images.pexels.com/photos/6267/menu-restaurant-vintage-table.jpg';
+const PRICE_RANGE_MIN = 0;
+const PRICE_RANGE_MAX = 500;
 
 const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId, onDataFetched, userPosition }) => {
+  // State variables
   const [localPlaces, setLocalPlaces] = useState([]);
   const [localFilteredPlaces, setLocalFilteredPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchInput, setSearchInput] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [selectedType, setSelectedType] = useState('all');
@@ -21,7 +26,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     const saved = localStorage.getItem('favorites');
     return saved ? JSON.parse(saved) : [];
   });
-  const [priceRange, setPriceRange] = useState([0, 500]);
+  const [priceRange, setPriceRange] = useState([PRICE_RANGE_MIN, PRICE_RANGE_MAX]);
   const [showFilters, setShowFilters] = useState(false);
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState('recommended');
@@ -35,123 +40,138 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
   const navigate = useNavigate();
   const { authTokens } = useContext(AuthContext);
 
-  const getAuthHeaders = () => ({
+  // Helper functions
+  const getAuthHeaders = useCallback(() => ({
     headers: {
       Authorization: `Bearer ${authTokens?.access}`,
     },
-  });
+  }), [authTokens]);
 
-  useEffect(() => {
-    const fetchPlaces = async () => {
-      if (!authTokens) {
-        console.warn('No authentication tokens available');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Fetch all place types in one request with refresh=true
-        const response = await axios.get('https://travel-buddy-7g6f.onrender.com/api/places/?refresh=true', getAuthHeaders());
-        const data = Array.isArray(response.data) ? response.data : response.data.results || [];
-        
-        // Add mock coordinates for testing if they don't exist
-        const placesWithCoordinates = data.map((place) => ({
-          ...place,
-          latitude: place.latitude || (userPosition?.[0] + (Math.random() * 0.01 - 0.005)),
-          longitude: place.longitude || (userPosition?.[1] + (Math.random() * 0.01 - 0.005)),
-          // Ensure place_type is always defined
-          place_type: place.place_type || place.category || 'hotel',
-        }));
-
-        // Log counts for debugging
-        const typeCount = {
-          hotel: placesWithCoordinates.filter(p => p.place_type === 'hotel').length,
-          restaurant: placesWithCoordinates.filter(p => p.place_type === 'restaurant').length,
-          attraction: placesWithCoordinates.filter(p => p.place_type === 'attraction').length
-        };
-        console.log('Place type counts:', typeCount);
-        setPlaceTypeStats(typeCount);
-        
-        setLocalPlaces(placesWithCoordinates);
-        setLocalFilteredPlaces(placesWithCoordinates);
-        
-        // For Dashboard component
-        if (setPlaces) setPlaces(placesWithCoordinates);
-        if (setFilteredPlaces) setFilteredPlaces(placesWithCoordinates);
-        if (onDataFetched) onDataFetched(placesWithCoordinates);
-      } catch (error) {
-        console.error('Error fetching places:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (userPosition) {
-      fetchPlaces();
-    } else {
-      console.warn('User position not available, unable to fetch places');
+  const getValidImageUrl = (imageUrl) => {
+    if (!imageUrl || imageUrl === '' || !imageUrl.startsWith('http')) {
+      return DEFAULT_PLACE_IMAGE;
     }
-  }, [authTokens, userPosition, setPlaces, setFilteredPlaces, onDataFetched]);
+    return imageUrl;
+  };
+
+  // Main fetch function
+  const fetchPlaces = useCallback(async () => {
+    if (!authTokens) {
+      console.warn('No authentication tokens available');
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+
+    if (!userPosition) {
+      console.warn('User position not available');
+      setError('Location services needed to find places nearby');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Fetch all place types in one request with refresh=true
+      const response = await axios.get(`${API_BASE_URL}/places/?refresh=true`, getAuthHeaders());
+      const data = Array.isArray(response.data) ? response.data : response.data.results || [];
+      
+      // Normalize the data
+      const placesWithCoordinates = data.map((place) => ({
+        ...place,
+        latitude: place.latitude || (userPosition?.[0] + (Math.random() * 0.01 - 0.005)),
+        longitude: place.longitude || (userPosition?.[1] + (Math.random() * 0.01 - 0.005)),
+        place_type: place.place_type || place.category || 'hotel',
+        price: parseFloat(place.price || 0),
+        rating: parseFloat(place.rating || 0),
+      }));
+
+      // Calculate place type statistics
+      const typeCount = {
+        hotel: placesWithCoordinates.filter(p => p.place_type === 'hotel').length,
+        restaurant: placesWithCoordinates.filter(p => p.place_type === 'restaurant').length,
+        attraction: placesWithCoordinates.filter(p => p.place_type === 'attraction').length
+      };
+      
+      console.log('Place type counts:', typeCount);
+      setPlaceTypeStats(typeCount);
+      
+      setLocalPlaces(placesWithCoordinates);
+      setLocalFilteredPlaces(placesWithCoordinates);
+      setError(null);
+      
+      // For parent components
+      if (setPlaces) setPlaces(placesWithCoordinates);
+      if (setFilteredPlaces) setFilteredPlaces(placesWithCoordinates);
+      if (onDataFetched) onDataFetched(placesWithCoordinates);
+    } catch (error) {
+      console.error('Error fetching places:', error);
+      setError('Failed to load places. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  }, [authTokens, userPosition, getAuthHeaders, setPlaces, setFilteredPlaces, onDataFetched]);
 
   useEffect(() => {
-    filterPlaces();
-  }, [activeSearch, selectedType, localPlaces, minRating, priceRange, sortBy]);
+    fetchPlaces();
+  }, [fetchPlaces]);
 
-  const filterPlaces = () => {
+  // Apply filtering logic
+  const filterPlaces = useCallback(() => {
     if (!localPlaces || localPlaces.length === 0) return;
     
     let results = [...localPlaces];
-    console.log(`Filtering ${results.length} places with type: ${selectedType}`);
-
+    
     // Special case for favorites
     if (selectedType === 'favorites') {
       results = results.filter((place) => favorites.includes(place.id));
     } 
     // Filter by place type if not "all"
     else if (selectedType !== 'all') {
-      results = results.filter((place) => {
-        const placeType = place.place_type || place.category;
-        return placeType === selectedType;
-      });
+      results = results.filter((place) => place.place_type === selectedType);
     }
 
     // Add price filter
     results = results.filter((place) => {
-      const price = typeof place.price === 'number' ? place.price : parseFloat(place.price || 0);
+      const price = place.price;
       return price >= priceRange[0] && price <= priceRange[1];
     });
     
     // Add rating filter
-    results = results.filter((place) => {
-      const rating = parseFloat(place.rating || 0);
-      return rating >= minRating;
-    });
+    results = results.filter((place) => place.rating >= minRating);
 
+    // Apply search text filter
     if (activeSearch.trim()) {
       const search = activeSearch.toLowerCase();
       results = results.filter((place) =>
-        [place.name, place.location, place.address].some((field) =>
-          field?.toLowerCase().includes(search)
-        )
+        [place.name, place.location, place.address, place.city]
+          .filter(Boolean) // Filter out undefined/null values
+          .some((field) => field.toLowerCase().includes(search))
       );
     }
 
     // Apply sorting
     if (sortBy === 'price-low') {
-      results.sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0));
+      results.sort((a, b) => a.price - b.price);
     } else if (sortBy === 'price-high') {
-      results.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
+      results.sort((a, b) => b.price - a.price);
     } else if (sortBy === 'rating') {
-      results.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+      results.sort((a, b) => b.rating - a.rating);
+    } else if (sortBy === 'name') {
+      results.sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    console.log(`Filter resulted in ${results.length} places`);
     setLocalFilteredPlaces(results);
     
     // For Dashboard component
     if (setFilteredPlaces) setFilteredPlaces(results);
-  };
+  }, [localPlaces, selectedType, favorites, priceRange, minRating, activeSearch, sortBy, setFilteredPlaces]);
 
+  useEffect(() => {
+    filterPlaces();
+  }, [filterPlaces]);
+
+  // Event handlers
   const handleSearch = () => {
     setActiveSearch(searchInput);
     
@@ -163,7 +183,11 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     }
   };
 
-  const handleKeyPress = (e) => e.key === 'Enter' && handleSearch();
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const handleActionClick = (place) => {
     const placeType = place.place_type || place.category;
@@ -175,8 +199,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
 
     navigate(routeMap[placeType], {
       state: {
-        selectedPlace: place, // always pass full place object
-        selectedPrice: place.price, // pass price separately too
+        selectedPlace: place,
+        selectedPrice: place.price,
       },
     });
   };
@@ -206,16 +230,13 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     setQuickViewPlace(place);
   };
 
-  // Simple function to check if image URL is valid
-  const getValidImageUrl = (imageUrl) => {
-    if (!imageUrl || imageUrl === '' || !imageUrl.startsWith('http')) {
-      return DEFAULT_PLACE_IMAGE;
-    }
-    return imageUrl;
+  const resetFilters = () => {
+    setPriceRange([PRICE_RANGE_MIN, PRICE_RANGE_MAX]);
+    setMinRating(0);
+    setSortBy('recommended');
   };
 
-  if (loading) return <div className="text-center mt-10">Loading places...</div>;
-
+  // JSX rendering
   return (
     <div className="p-6">
       {/* Search and Filter */}
@@ -278,6 +299,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
             <option value="price-low">Price: Low to High</option>
             <option value="price-high">Price: High to Low</option>
             <option value="rating">Highest Rated</option>
+            <option value="name">Name (A-Z)</option>
           </select>
           
           <button
@@ -298,16 +320,16 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
               <span className="mr-2">${priceRange[0]}</span>
               <input
                 type="range"
-                min="0"
-                max="500"
+                min={PRICE_RANGE_MIN}
+                max={PRICE_RANGE_MAX}
                 value={priceRange[0]}
                 onChange={(e) => setPriceRange([parseInt(e.target.value), priceRange[1]])}
                 className="w-full"
               />
               <input
                 type="range"
-                min="0"
-                max="500"
+                min={PRICE_RANGE_MIN}
+                max={PRICE_RANGE_MAX}
                 value={priceRange[1]}
                 onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
                 className="w-full"
@@ -334,11 +356,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
           
           <div className="mt-4 flex justify-end">
             <button
-              onClick={() => {
-                setPriceRange([0, 500]);
-                setMinRating(0);
-                setSortBy('recommended');
-              }}
+              onClick={resetFilters}
               className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg mr-2 transition"
             >
               Reset Filters
@@ -355,16 +373,27 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
         </div>
       )}
 
-      {/* Debug Info - Can be removed in production */}
-      {localPlaces.length === 0 && !loading && (
-        <div className="bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200">
-          <h3 className="text-yellow-800 font-semibold">No places loaded from the server</h3>
-          <p className="text-yellow-700">This could be due to an API error or missing user location.</p>
+      {/* Error display */}
+      {error && (
+        <div className="bg-red-50 p-4 rounded-lg mb-4 border border-red-200">
+          <h3 className="text-red-800 font-semibold">Error</h3>
+          <p className="text-red-700">{error}</p>
+          <button 
+            onClick={fetchPlaces} 
+            className="mt-2 text-blue-600 underline hover:text-blue-800"
+          >
+            Try again
+          </button>
         </div>
       )}
 
-      {/* Place Cards - Changed to display in 2 columns instead of 3 */}
-      {localFilteredPlaces.length === 0 ? (
+      {/* Loading indicator */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+          <p className="mt-2 text-gray-600">Loading places...</p>
+        </div>
+      ) : localFilteredPlaces.length === 0 ? (
         <div className="text-center mt-10 p-6 bg-gray-50 rounded-lg">
           <h3 className="text-xl font-semibold text-gray-700">No places found</h3>
           <p className="text-gray-500 mt-2">Try adjusting your search or filters</p>
@@ -391,10 +420,15 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                   src={getValidImageUrl(place.image_url)}
                   alt={place.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = DEFAULT_PLACE_IMAGE;
+                  }}
                 />
                 <button
                   onClick={(e) => toggleFavorite(place.id, e)}
                   className="absolute top-2 right-2 p-2 bg-white bg-opacity-80 rounded-full shadow hover:bg-opacity-100 transition"
+                  aria-label={favorites.includes(place.id) ? "Remove from favorites" : "Add to favorites"}
                 >
                   {favorites.includes(place.id) ? (
                     <span className="text-red-500">❤️</span>
@@ -404,9 +438,9 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 </button>
                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-40 text-white p-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold capitalize">{place.place_type || place.category}</span>
+                    <span className="font-bold capitalize">{place.place_type}</span>
                     <span className="bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-bold">
-                      {place.rating ? `${place.rating} ★` : 'No rating'}
+                      {place.rating > 0 ? `${place.rating.toFixed(1)} ★` : 'No rating'}
                     </span>
                   </div>
                 </div>
@@ -418,7 +452,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 </p>
                 <div className="flex flex-col mt-4">
                   <span className="font-bold text-lg text-blue-600 mb-2">
-                    ${parseFloat(place.price || 0).toFixed(2)}
+                    ${place.price.toFixed(2)}
                   </span>
                   <div className="flex space-x-2">
                     <button
@@ -430,8 +464,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                     <button
                       className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm transition"
                     >
-                      {(place.place_type || place.category) === 'hotel' ? 'Book' : 
-                       (place.place_type || place.category) === 'restaurant' ? 'Reserve' : 'Get Tickets'}
+                      {place.place_type === 'hotel' ? 'Book' : 
+                       place.place_type === 'restaurant' ? 'Reserve' : 'Get Tickets'}
                     </button>
                   </div>
                 </div>
@@ -450,10 +484,15 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 src={getValidImageUrl(quickViewPlace.image_url)}
                 alt={quickViewPlace.name}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = DEFAULT_PLACE_IMAGE;
+                }}
               />
               <button
                 onClick={() => setQuickViewPlace(null)}
                 className="absolute top-2 right-2 p-2 bg-white bg-opacity-80 rounded-full shadow hover:bg-opacity-100 transition"
+                aria-label="Close quick view"
               >
                 <span className="text-gray-600">✕</span>
               </button>
@@ -467,10 +506,10 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 </div>
                 <div className="flex flex-col items-end">
                   <span className="bg-yellow-400 text-black px-3 py-1 rounded-full font-bold">
-                    {quickViewPlace.rating ? `${quickViewPlace.rating} ★` : 'No rating'}
+                    {quickViewPlace.rating > 0 ? `${quickViewPlace.rating.toFixed(1)} ★` : 'No rating'}
                   </span>
                   <span className="font-bold text-blue-600 text-xl mt-2">
-                    ${parseFloat(quickViewPlace.price || 0).toFixed(2)}
+                    ${quickViewPlace.price.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -479,19 +518,31 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 <h3 className="text-lg font-semibold mb-2">Details</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="text-gray-600">Type:</div>
-                  <div className="font-semibold capitalize">{quickViewPlace.place_type || quickViewPlace.category}</div>
+                  <div className="font-semibold capitalize">{quickViewPlace.place_type}</div>
                   <div className="text-gray-600">City:</div>
                   <div className="font-semibold">{quickViewPlace.city || 'Not specified'}</div>
-                  <div className="text-gray-600">Coordinates:</div>
-                  <div className="font-semibold">
-                    {quickViewPlace.latitude?.toFixed(4)}, {quickViewPlace.longitude?.toFixed(4)}
-                  </div>
+                  {quickViewPlace.latitude && quickViewPlace.longitude && (
+                    <>
+                      <div className="text-gray-600">Coordinates:</div>
+                      <div className="font-semibold">
+                        {quickViewPlace.latitude.toFixed(4)}, {quickViewPlace.longitude.toFixed(4)}
+                      </div>
+                    </>
+                  )}
                 </div>
+                
+                {quickViewPlace.description && (
+                  <div className="mt-4">
+                    <h4 className="text-gray-600 mb-1">Description:</h4>
+                    <p>{quickViewPlace.description}</p>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     toggleFavorite(quickViewPlace.id, { stopPropagation: () => {} });
                     setQuickViewPlace({
                       ...quickViewPlace,
@@ -509,8 +560,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                   }}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
                 >
-                  {(quickViewPlace.place_type || quickViewPlace.category) === 'hotel' ? 'Book Now' : 
-                   (quickViewPlace.place_type || quickViewPlace.category) === 'restaurant' ? 'Make Reservation' : 'Buy Tickets'}
+                  {quickViewPlace.place_type === 'hotel' ? 'Book Now' : 
+                   quickViewPlace.place_type === 'restaurant' ? 'Make Reservation' : 'Buy Tickets'}
                 </button>
               </div>
             </div>

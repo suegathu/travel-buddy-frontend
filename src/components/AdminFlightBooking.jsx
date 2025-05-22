@@ -21,7 +21,7 @@ const AdminFlightBookings = () => {
         return;
       }
 
-      const response = await fetch('https://travel-buddy-7g6f.onrender.com/api/flights/admin/bookings/', {
+      const response = await fetch('https://travel-buddy-backend-8kf4.onrender.com/api/flights/admin/bookings/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -68,7 +68,7 @@ const AdminFlightBookings = () => {
     try {
       if (!authTokens?.access) return;
 
-      const response = await fetch(`https://travel-buddy-7g6f.onrender.com/api/flights/admin/bookings/${id}/update/`, {
+      const response = await fetch(`https://travel-buddy-backend-8kf4.onrender.com/api/flights/admin/bookings/${id}/update/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ const AdminFlightBookings = () => {
     try {
       if (!authTokens?.access) return;
   
-      const response = await fetch(`https://travel-buddy-7g6f.onrender.com/api/flights/admin/bookings/${id}/delete/`, {
+      const response = await fetch(`https://travel-buddy-backend-8kf4.onrender.com/api/flights/admin/bookings/${id}/delete/`, {
         method: 'DELETE',  // Changed from PATCH to DELETE
         headers: {
           'Content-Type': 'application/json',

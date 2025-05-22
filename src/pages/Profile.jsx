@@ -7,7 +7,7 @@ const Profile = () => {
   const [profile, setProfile] = useState({});
   const { authTokens } = useContext(AuthContext);
   const navigate = useNavigate();
-  const baseUrl = "https://travel-buddy-7g6f.onrender.com";
+  const baseUrl = "https://travel-buddy-backend-8kf4.onrender.com";
 
   useEffect(() => {
     axiosInstance

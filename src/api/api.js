@@ -2,7 +2,7 @@
 import axios from "axios";
 
 // Set the base URL to the provided render.com URL
-const API_BASE_URL = "https://travel-buddy-7g6f.onrender.com";
+const API_BASE_URL = "https://travel-buddy-backend-8kf4.onrender.com";
 
 // Create Axios instance
 const apiClient = axios.create({

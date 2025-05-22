@@ -207,23 +207,23 @@ const AdminPlaces = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const method = editMode ? "put" : "post";
-    const url = editMode ? `/places/${formData.id}/` : "/place/";
+    const url = editMode ? `/places/${formData.id}/` : "/places/";  // Changed from "/place/" to "/places/"
 
     try {
-      await axiosInstance[method](url, {
-        ...formData,
-        place_type: formData.category, // sync with backend
-      }, {
-        headers: { Authorization: `Bearer ${authTokens.access}` },
-      });
+        await axiosInstance[method](url, {
+            ...formData,
+            place_type: formData.category, // sync with backend
+        }, {
+            headers: { Authorization: `Bearer ${authTokens.access}` },
+        });
 
-      toast.success(`Place ${editMode ? "updated" : "created"} successfully.`);
-      fetchPlaces();
-      setShowModal(false);
+        toast.success(`Place ${editMode ? "updated" : "created"} successfully.`);
+        fetchPlaces();
+        setShowModal(false);
     } catch (err) {
-      toast.error("Failed to save place.", err);
+        toast.error("Failed to save place.", err);
     }
-  };
+};
 
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);

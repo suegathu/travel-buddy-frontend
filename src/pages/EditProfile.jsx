@@ -15,7 +15,7 @@ const EditProfile = () => {
   const [preview, setPreview] = useState(null);
   const { authTokens } = useContext(AuthContext);
   const navigate = useNavigate();
-  const baseUrl = "https://travel-buddy-7g6f.onrender.com"; // Add your backend URL here
+  const baseUrl = "https://travel-buddy-backend-8kf4.onrender.com"; 
 
   useEffect(() => {
     axiosInstance
