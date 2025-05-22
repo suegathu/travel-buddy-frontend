@@ -68,7 +68,7 @@ const TicketDetail = () => {
               <p>{ticket.visit_time || 'N/A'}</p>
 
               <p className="font-medium">💵 Total Price:</p>
-              <p>${ticket.total_price}</p>
+              <p>Kes{ticket.total_price}</p>
 
               <p className="font-medium">🏷️ Type:</p>
               <p>{ticket.place_type}</p>

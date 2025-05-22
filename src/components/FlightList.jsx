@@ -187,7 +187,7 @@ const FlightList = () => {
                     <strong>Seats Available:</strong> {flight.available_seats ?? "Not Available"}
                   </Typography>
                   <Typography variant="h6" color="primary" sx={{ mt: 2 }}>
-                    Price: ${flight.price}
+                    Price: Kes{flight.price}
                   </Typography>
                 </CardContent>
                 <Box sx={{ p: 2, pt: 0 }}>

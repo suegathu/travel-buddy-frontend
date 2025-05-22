@@ -218,7 +218,7 @@ const Reservations = () => {
           <input
             type="text"
             name="total_price"
-            value={`$${formData.total_price}`}
+            value={`Kes${formData.total_price}`}
             disabled
             className="mt-1 p-2 w-full border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed shadow-sm focus:outline-none"
           />

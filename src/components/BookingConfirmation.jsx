@@ -98,7 +98,7 @@ const BookingConfirmation = () => {
             <div className="mt-4 space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Price:</span>
-                <span className="font-semibold text-green-600">${booking.total_price}</span>
+                <span className="font-semibold text-green-600">Kes{booking.total_price}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Status:</span>

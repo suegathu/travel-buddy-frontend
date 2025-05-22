@@ -311,7 +311,7 @@ const AdminPlaces = () => {
           
           {/* Price range */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Min Price ($)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Min Price (Kes)</label>
             <input
               type="number"
               name="minPrice"
@@ -323,7 +323,7 @@ const AdminPlaces = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Max Price ($)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Max Price (Kes)</label>
             <input
               type="number"
               name="maxPrice"
@@ -376,7 +376,7 @@ const AdminPlaces = () => {
                   )}
                 </div>
                 <p className="text-gray-600">{place.city} - {place.place_type || place.category}</p>
-                <p className="mb-1 font-medium">${place.price}</p>
+                <p className="mb-1 font-medium">Kes{place.price}</p>
                 {place.rating && (
                   <p className="text-sm text-amber-600 mb-2">Rating: {place.rating}/5</p>
                 )}

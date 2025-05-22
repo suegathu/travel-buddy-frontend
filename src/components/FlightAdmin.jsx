@@ -176,7 +176,7 @@ const FlightAdmin = () => {
       title: 'Price',
       dataIndex: 'price',
       key: 'price',
-      render: (text) => `$${text.toFixed(2)}`,
+      render: (text) => `Kes${text.toFixed(2)}`,
       sorter: (a, b) => a.price - b.price
     },
     {

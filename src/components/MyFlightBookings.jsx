@@ -158,7 +158,7 @@ const MyFlightBookings = () => {
                 </div>
                 <div>
                   <p className="font-medium">Price</p>
-                  <p>${booking.price}</p>
+                  <p>Kes{booking.price}</p>
                 </div>
               </div>
 

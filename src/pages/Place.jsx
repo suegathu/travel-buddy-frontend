@@ -6,8 +6,8 @@ import AuthContext from '../context/AuthContext';
 // Constants
 const API_BASE_URL = "https://travel-buddy-backend-8kf4.onrender.com/api";
 const DEFAULT_PLACE_IMAGE = 'https://images.pexels.com/photos/6267/menu-restaurant-vintage-table.jpg';
-const PRICE_RANGE_MIN = 0;
-const PRICE_RANGE_MAX = 500;
+const PRICE_RANGE_MIN = 250;
+const PRICE_RANGE_MAX = 50000;
 
 const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId, onDataFetched, userPosition }) => {
   // State variables
@@ -54,7 +54,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     return imageUrl;
   };
 
-  // Fetch all places with pagination handling
+  // Updated fetch function to match admin approach
   const fetchAllPlaces = useCallback(async () => {
     if (!authTokens) {
       console.warn('No authentication tokens available');
@@ -63,59 +63,40 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       return;
     }
 
-    if (!userPosition) {
-      console.warn('User position not available');
-      setError('Location services needed to find places nearby');
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     try {
-      let allPlaces = [];
-      let currentPage = 1;
-      let hasMorePages = true;
-
-      // Fetch all pages of data
-      while (hasMorePages) {
-        const response = await axios.get(
-          `${API_BASE_URL}/places/?page=${currentPage}&refresh=true&page_size=100`, 
-          getAuthHeaders()
-        );
-        
-        const data = response.data;
-        const places = Array.isArray(data) ? data : data.results || [];
-        
-        if (places.length === 0) {
-          hasMorePages = false;
-        } else {
-          allPlaces = [...allPlaces, ...places];
-          
-          // Check if there are more pages
-          if (data.next) {
-            currentPage++;
-          } else {
-            hasMorePages = false;
-          }
-        }
-        
-        // Safety check to prevent infinite loops
-        if (currentPage > 50) {
-          console.warn('Reached maximum page limit, stopping fetch');
-          break;
-        }
-      }
-
-      console.log(`Fetched total of ${allPlaces.length} places across ${currentPage} pages`);
+      // Use the same approach as AdminPlaces - high limit to get all records
+      const queryParams = `limit=10000`; // Set very high limit to get all records
       
-      // Normalize the data
+      const response = await axios.get(
+        `${API_BASE_URL}/places/?${queryParams}`, 
+        getAuthHeaders()
+      );
+      
+      console.log('API Response:', response.data);
+      
+      // Handle different response structures
+      let data = response.data;
+      let allPlaces = Array.isArray(data) ? data : (data.results || data);
+      
+      console.log(`Fetched ${allPlaces.length} places from API`);
+      
+      // Normalize the data - ensure all required fields exist
       const placesWithCoordinates = allPlaces.map((place) => ({
         ...place,
-        latitude: place.latitude || (userPosition?.[0] + (Math.random() * 0.01 - 0.005)),
-        longitude: place.longitude || (userPosition?.[1] + (Math.random() * 0.01 - 0.005)),
+        // Ensure coordinates exist (use user position + random offset if missing)
+        latitude: place.latitude || (userPosition?.[0] ? userPosition[0] + (Math.random() * 0.01 - 0.005) : 0),
+        longitude: place.longitude || (userPosition?.[1] ? userPosition[1] + (Math.random() * 0.01 - 0.005) : 0),
+        // Normalize place_type field
         place_type: place.place_type || place.category || 'hotel',
+        // Ensure numeric values
         price: parseFloat(place.price || 0),
         rating: parseFloat(place.rating || 0),
+        // Ensure other fields exist
+        name: place.name || 'Unnamed Place',
+        city: place.city || 'Unknown City',
+        image_url: place.image_url || DEFAULT_PLACE_IMAGE,
+        description: place.description || ''
       }));
 
       // Calculate place type statistics
@@ -126,8 +107,9 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       };
       
       console.log('Place type counts:', typeCount);
-      setPlaceTypeStats(typeCount);
+      console.log('Total places loaded:', placesWithCoordinates.length);
       
+      setPlaceTypeStats(typeCount);
       setLocalPlaces(placesWithCoordinates);
       setLocalFilteredPlaces(placesWithCoordinates);
       setError(null);
@@ -136,16 +118,18 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       if (setPlaces) setPlaces(placesWithCoordinates);
       if (setFilteredPlaces) setFilteredPlaces(placesWithCoordinates);
       if (onDataFetched) onDataFetched(placesWithCoordinates);
+
     } catch (error) {
       console.error('Error fetching places:', error);
-      setError('Failed to load places. Please try again later.');
+      console.error('Error details:', error.response?.data);
+      setError(`Failed to load places: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoading(false);
     }
   }, [authTokens, userPosition, getAuthHeaders, setPlaces, setFilteredPlaces, onDataFetched]);
 
-  // Alternative method: Fetch without pagination by requesting a large page size
-  const fetchPlacesLargeBatch = useCallback(async () => {
+  // Alternative fetch method that tries multiple approaches
+  const fetchPlacesWithFallback = useCallback(async () => {
     if (!authTokens) {
       console.warn('No authentication tokens available');
       setError('Authentication required');
@@ -153,70 +137,109 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       return;
     }
 
-    if (!userPosition) {
-      console.warn('User position not available');
-      setError('Location services needed to find places nearby');
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     try {
-      // Request a very large page size to get all results at once
-      const response = await axios.get(
-        `${API_BASE_URL}/places/?refresh=true&page_size=10000`, 
-        getAuthHeaders()
-      );
-      
-      const data = response.data;
-      const places = Array.isArray(data) ? data : data.results || [];
-      
-      console.log(`Fetched ${places.length} places in single request`);
-      
-      // Normalize the data
-      const placesWithCoordinates = places.map((place) => ({
-        ...place,
-        latitude: place.latitude || (userPosition?.[0] + (Math.random() * 0.01 - 0.005)),
-        longitude: place.longitude || (userPosition?.[1] + (Math.random() * 0.01 - 0.005)),
-        place_type: place.place_type || place.category || 'hotel',
-        price: parseFloat(place.price || 0),
-        rating: parseFloat(place.rating || 0),
-      }));
+      // First try: high limit (like AdminPlaces)
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/places/?limit=10000`, 
+          getAuthHeaders()
+        );
+        console.log('High limit fetch successful:', response.data);
+        await processPlacesData(response.data);
+        return;
+      } catch (error) {
+        console.log('High limit fetch failed, trying pagination:', error.message);
+      }
 
-      // Calculate place type statistics
-      const typeCount = {
-        hotel: placesWithCoordinates.filter(p => p.place_type === 'hotel').length,
-        restaurant: placesWithCoordinates.filter(p => p.place_type === 'restaurant').length,
-        attraction: placesWithCoordinates.filter(p => p.place_type === 'attraction').length
-      };
-      
-      console.log('Place type counts:', typeCount);
-      setPlaceTypeStats(typeCount);
-      
-      setLocalPlaces(placesWithCoordinates);
-      setLocalFilteredPlaces(placesWithCoordinates);
-      setError(null);
-      
-      // For parent components
-      if (setPlaces) setPlaces(placesWithCoordinates);
-      if (setFilteredPlaces) setFilteredPlaces(placesWithCoordinates);
-      if (onDataFetched) onDataFetched(placesWithCoordinates);
+      // Fallback: pagination approach
+      let allPlaces = [];
+      let currentPage = 1;
+      let hasMorePages = true;
+
+      while (hasMorePages && currentPage <= 20) { // Limit to 20 pages max
+        try {
+          const response = await axios.get(
+            `${API_BASE_URL}/places/?page=${currentPage}&page_size=100`, 
+            getAuthHeaders()
+          );
+          
+          const data = response.data;
+          const places = Array.isArray(data) ? data : data.results || [];
+          
+          if (places.length === 0) {
+            hasMorePages = false;
+          } else {
+            allPlaces = [...allPlaces, ...places];
+            
+            // Check if there are more pages
+            if (data.next) {
+              currentPage++;
+            } else {
+              hasMorePages = false;
+            }
+          }
+        } catch (pageError) {
+          console.error(`Error fetching page ${currentPage}:`, pageError);
+          hasMorePages = false;
+        }
+      }
+
+      console.log(`Pagination fetch completed: ${allPlaces.length} places across ${currentPage} pages`);
+      await processPlacesData(allPlaces);
+
     } catch (error) {
-      console.error('Error fetching places with large batch:', error);
-      // Fallback to paginated fetch if large batch fails
-      console.log('Falling back to paginated fetch...');
-      await fetchAllPlaces();
+      console.error('All fetch attempts failed:', error);
+      setError(`Failed to load places: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [authTokens, userPosition, getAuthHeaders, setPlaces, setFilteredPlaces, onDataFetched, fetchAllPlaces]);
+  }, [authTokens, getAuthHeaders]);
+
+  // Helper function to process places data
+  const processPlacesData = (data) => {
+    const allPlaces = Array.isArray(data) ? data : (data.results || data);
+    
+    // Normalize the data
+    const placesWithCoordinates = allPlaces.map((place) => ({
+      ...place,
+      latitude: place.latitude || (userPosition?.[0] ? userPosition[0] + (Math.random() * 0.01 - 0.005) : 0),
+      longitude: place.longitude || (userPosition?.[1] ? userPosition[1] + (Math.random() * 0.01 - 0.005) : 0),
+      place_type: place.place_type || place.category || 'hotel',
+      price: parseFloat(place.price || 0),
+      rating: parseFloat(place.rating || 0),
+      name: place.name || 'Unnamed Place',
+      city: place.city || 'Unknown City',
+      image_url: place.image_url || DEFAULT_PLACE_IMAGE,
+      description: place.description || ''
+    }));
+
+    // Calculate statistics
+    const typeCount = {
+      hotel: placesWithCoordinates.filter(p => p.place_type === 'hotel').length,
+      restaurant: placesWithCoordinates.filter(p => p.place_type === 'restaurant').length,
+      attraction: placesWithCoordinates.filter(p => p.place_type === 'attraction').length
+    };
+    
+    console.log('Final place type counts:', typeCount);
+    console.log('Total places processed:', placesWithCoordinates.length);
+    
+    setPlaceTypeStats(typeCount);
+    setLocalPlaces(placesWithCoordinates);
+    setLocalFilteredPlaces(placesWithCoordinates);
+    setError(null);
+    
+    // For parent components
+    if (setPlaces) setPlaces(placesWithCoordinates);
+    if (setFilteredPlaces) setFilteredPlaces(placesWithCoordinates);
+    if (onDataFetched) onDataFetched(placesWithCoordinates);
+  };
 
   useEffect(() => {
-    // Try large batch first, fallback to pagination if needed
-    fetchPlacesLargeBatch();
-  }, [fetchPlacesLargeBatch]);
+    fetchPlacesWithFallback();
+  }, [fetchPlacesWithFallback]);
 
-  // Apply filtering logic
+  // Apply filtering logic (simplified to avoid hiding places unnecessarily)
   const filterPlaces = useCallback(() => {
     if (!localPlaces || localPlaces.length === 0) return;
     
@@ -231,20 +254,24 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       results = results.filter((place) => place.place_type === selectedType);
     }
 
-    // Add price filter
-    results = results.filter((place) => {
-      const price = place.price;
-      return price >= priceRange[0] && price <= priceRange[1];
-    });
+    // Add price filter (only if user has set specific price range)
+    if (priceRange[0] > PRICE_RANGE_MIN || priceRange[1] < PRICE_RANGE_MAX) {
+      results = results.filter((place) => {
+        const price = place.price || 0;
+        return price >= priceRange[0] && price <= priceRange[1];
+      });
+    }
     
-    // Add rating filter
-    results = results.filter((place) => place.rating >= minRating);
+    // Add rating filter (only if user has set minimum rating)
+    if (minRating > 0) {
+      results = results.filter((place) => (place.rating || 0) >= minRating);
+    }
 
     // Apply search text filter
     if (activeSearch.trim()) {
       const search = activeSearch.toLowerCase();
       results = results.filter((place) =>
-        [place.name, place.location, place.address, place.city]
+        [place.name, place.location, place.address, place.city, place.description]
           .filter(Boolean) // Filter out undefined/null values
           .some((field) => field.toLowerCase().includes(search))
       );
@@ -252,15 +279,16 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
 
     // Apply sorting
     if (sortBy === 'price-low') {
-      results.sort((a, b) => a.price - b.price);
+      results.sort((a, b) => (a.price || 0) - (b.price || 0));
     } else if (sortBy === 'price-high') {
-      results.sort((a, b) => b.price - a.price);
+      results.sort((a, b) => (b.price || 0) - (a.price || 0));
     } else if (sortBy === 'rating') {
-      results.sort((a, b) => b.rating - a.rating);
+      results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     } else if (sortBy === 'name') {
-      results.sort((a, b) => a.name.localeCompare(b.name));
+      results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }
 
+    console.log(`Filtering: ${localPlaces.length} total -> ${results.length} filtered`);
     setLocalFilteredPlaces(results);
     
     // For Dashboard component
@@ -334,15 +362,25 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     setPriceRange([PRICE_RANGE_MIN, PRICE_RANGE_MAX]);
     setMinRating(0);
     setSortBy('recommended');
+    setActiveSearch('');
+    setSearchInput('');
   };
 
   const handleRefreshData = () => {
-    fetchPlacesLargeBatch();
+    fetchPlacesWithFallback();
   };
 
   // JSX rendering
   return (
     <div className="p-6">
+      {import.meta.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-2 bg-yellow-100 rounded text-sm">
+          <strong>Debug:</strong> Total: {localPlaces.length}, Filtered: {localFilteredPlaces.length}, 
+          Hotels: {placeTypeStats.hotel}, Restaurants: {placeTypeStats.restaurant}, 
+          Attractions: {placeTypeStats.attraction}
+        </div>
+      )}
+
       {/* Search and Filter */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-grow flex relative">
@@ -429,7 +467,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
             <div className="flex items-center">
-              <span className="mr-2">${priceRange[0]}</span>
+              <span className="mr-2">Kes{priceRange[0]}</span>
               <input
                 type="range"
                 min={PRICE_RANGE_MIN}
@@ -446,7 +484,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
                 className="w-full"
               />
-              <span className="ml-2">${priceRange[1]}</span>
+              <span className="ml-2">Kes{priceRange[1]}</span>
             </div>
           </div>
           
@@ -514,10 +552,13 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
         <div className="text-center mt-10 p-6 bg-gray-50 rounded-lg">
           <h3 className="text-xl font-semibold text-gray-700">No places found</h3>
           <p className="text-gray-500 mt-2">Try adjusting your search or filters</p>
-          {selectedType !== 'all' && (
-            <p className="text-blue-500 mt-3 cursor-pointer" onClick={() => setSelectedType('all')}>
-              Show all places instead
-            </p>
+          {(selectedType !== 'all' || activeSearch || priceRange[0] > PRICE_RANGE_MIN || priceRange[1] < PRICE_RANGE_MAX || minRating > 0) && (
+            <button 
+              onClick={resetFilters}
+              className="mt-3 text-blue-500 cursor-pointer hover:text-blue-700"
+            >
+              Clear all filters
+            </button>
           )}
         </div>
       ) : (
@@ -569,7 +610,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                 </p>
                 <div className="flex flex-col mt-4">
                   <span className="font-bold text-lg text-blue-600 mb-2">
-                    ${place.price.toFixed(2)}
+                    Kes{place.price.toFixed(2)}
                   </span>
                   <div className="flex space-x-2">
                     <button
@@ -626,7 +667,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
                     {quickViewPlace.rating > 0 ? `${quickViewPlace.rating.toFixed(1)} ★` : 'No rating'}
                   </span>
                   <span className="font-bold text-blue-600 text-xl mt-2">
-                    ${quickViewPlace.price.toFixed(2)}
+                    Kes{quickViewPlace.price.toFixed(2)}
                   </span>
                 </div>
               </div>

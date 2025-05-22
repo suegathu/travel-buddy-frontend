@@ -177,7 +177,7 @@ const BookFlight = () => {
               
               <div className="flight-info-item">
                 <Typography variant="body2" color="textSecondary">Price</Typography>
-                <Typography variant="h6" color="primary">${flightDetails.price}</Typography>
+                <Typography variant="h6" color="primary">Kes{flightDetails.price}</Typography>
               </div>
               
               <div className="flight-info-item">

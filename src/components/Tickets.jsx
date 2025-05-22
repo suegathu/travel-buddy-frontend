@@ -169,7 +169,7 @@ const Tickets = () => {
           <input
             type="text"
             name="totalPrice"
-            value={`$${formData.totalPrice}`}
+            value={`Kes${formData.totalPrice}`}
             disabled
             className="mt-1 p-2 w-full border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed shadow-sm focus:outline-none"
           />
