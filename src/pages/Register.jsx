@@ -1,6 +1,7 @@
-import { useState, useContext } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthContext from "../context/AuthContext";
+import axios from "axios";
 
 const Register = () => {
   const [form, setForm] = useState({ username: "", email: "", password: "" });
@@ -8,7 +9,15 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { api } = useContext(AuthContext);
+
+const API_BASE_URL = "https://travel-buddy-backend-8kf4.onrender.com";
+const plainApi = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -22,7 +31,8 @@ const Register = () => {
     
     try {
       // Use the api instance from AuthContext
-      const response = await api.post("/api/users/register/", form);
+      const response = await plainApi.post("/api/users/register/", form);
+
       
       if (response.status === 201 || response.status === 200) {
         setRegisterStatus("Registration successful!");

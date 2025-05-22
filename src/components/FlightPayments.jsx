@@ -80,7 +80,7 @@ const FlightPayment = () => {
       const date = new Date(dateTimeStr);
       return date.toLocaleString();
     } catch (err) {
-      return dateTimeStr;
+      return dateTimeStr, err;
     }
   };
 
