@@ -54,8 +54,8 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     return imageUrl;
   };
 
-  // Main fetch function
-  const fetchPlaces = useCallback(async () => {
+  // Fetch all places with pagination handling
+  const fetchAllPlaces = useCallback(async () => {
     if (!authTokens) {
       console.warn('No authentication tokens available');
       setError('Authentication required');
@@ -72,12 +72,44 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
 
     setLoading(true);
     try {
-      // Fetch all place types in one request with refresh=true
-      const response = await axios.get(`${API_BASE_URL}/places/?refresh=true`, getAuthHeaders());
-      const data = Array.isArray(response.data) ? response.data : response.data.results || [];
+      let allPlaces = [];
+      let currentPage = 1;
+      let hasMorePages = true;
+
+      // Fetch all pages of data
+      while (hasMorePages) {
+        const response = await axios.get(
+          `${API_BASE_URL}/places/?page=${currentPage}&refresh=true&page_size=100`, 
+          getAuthHeaders()
+        );
+        
+        const data = response.data;
+        const places = Array.isArray(data) ? data : data.results || [];
+        
+        if (places.length === 0) {
+          hasMorePages = false;
+        } else {
+          allPlaces = [...allPlaces, ...places];
+          
+          // Check if there are more pages
+          if (data.next) {
+            currentPage++;
+          } else {
+            hasMorePages = false;
+          }
+        }
+        
+        // Safety check to prevent infinite loops
+        if (currentPage > 50) {
+          console.warn('Reached maximum page limit, stopping fetch');
+          break;
+        }
+      }
+
+      console.log(`Fetched total of ${allPlaces.length} places across ${currentPage} pages`);
       
       // Normalize the data
-      const placesWithCoordinates = data.map((place) => ({
+      const placesWithCoordinates = allPlaces.map((place) => ({
         ...place,
         latitude: place.latitude || (userPosition?.[0] + (Math.random() * 0.01 - 0.005)),
         longitude: place.longitude || (userPosition?.[1] + (Math.random() * 0.01 - 0.005)),
@@ -112,9 +144,77 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     }
   }, [authTokens, userPosition, getAuthHeaders, setPlaces, setFilteredPlaces, onDataFetched]);
 
+  // Alternative method: Fetch without pagination by requesting a large page size
+  const fetchPlacesLargeBatch = useCallback(async () => {
+    if (!authTokens) {
+      console.warn('No authentication tokens available');
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+
+    if (!userPosition) {
+      console.warn('User position not available');
+      setError('Location services needed to find places nearby');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Request a very large page size to get all results at once
+      const response = await axios.get(
+        `${API_BASE_URL}/places/?refresh=true&page_size=10000`, 
+        getAuthHeaders()
+      );
+      
+      const data = response.data;
+      const places = Array.isArray(data) ? data : data.results || [];
+      
+      console.log(`Fetched ${places.length} places in single request`);
+      
+      // Normalize the data
+      const placesWithCoordinates = places.map((place) => ({
+        ...place,
+        latitude: place.latitude || (userPosition?.[0] + (Math.random() * 0.01 - 0.005)),
+        longitude: place.longitude || (userPosition?.[1] + (Math.random() * 0.01 - 0.005)),
+        place_type: place.place_type || place.category || 'hotel',
+        price: parseFloat(place.price || 0),
+        rating: parseFloat(place.rating || 0),
+      }));
+
+      // Calculate place type statistics
+      const typeCount = {
+        hotel: placesWithCoordinates.filter(p => p.place_type === 'hotel').length,
+        restaurant: placesWithCoordinates.filter(p => p.place_type === 'restaurant').length,
+        attraction: placesWithCoordinates.filter(p => p.place_type === 'attraction').length
+      };
+      
+      console.log('Place type counts:', typeCount);
+      setPlaceTypeStats(typeCount);
+      
+      setLocalPlaces(placesWithCoordinates);
+      setLocalFilteredPlaces(placesWithCoordinates);
+      setError(null);
+      
+      // For parent components
+      if (setPlaces) setPlaces(placesWithCoordinates);
+      if (setFilteredPlaces) setFilteredPlaces(placesWithCoordinates);
+      if (onDataFetched) onDataFetched(placesWithCoordinates);
+    } catch (error) {
+      console.error('Error fetching places with large batch:', error);
+      // Fallback to paginated fetch if large batch fails
+      console.log('Falling back to paginated fetch...');
+      await fetchAllPlaces();
+    } finally {
+      setLoading(false);
+    }
+  }, [authTokens, userPosition, getAuthHeaders, setPlaces, setFilteredPlaces, onDataFetched, fetchAllPlaces]);
+
   useEffect(() => {
-    fetchPlaces();
-  }, [fetchPlaces]);
+    // Try large batch first, fallback to pagination if needed
+    fetchPlacesLargeBatch();
+  }, [fetchPlacesLargeBatch]);
 
   // Apply filtering logic
   const filterPlaces = useCallback(() => {
@@ -236,6 +336,10 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
     setSortBy('recommended');
   };
 
+  const handleRefreshData = () => {
+    fetchPlacesLargeBatch();
+  };
+
   // JSX rendering
   return (
     <div className="p-6">
@@ -309,6 +413,14 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
             <span>Filters</span>
             <span className="ml-1">{showFilters ? '▲' : '▼'}</span>
           </button>
+
+          <button
+            onClick={handleRefreshData}
+            className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-lg transition flex items-center"
+            title="Refresh all data"
+          >
+            <span>🔄</span>
+          </button>
         </div>
       </div>
       
@@ -373,13 +485,18 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
         </div>
       )}
 
+      {/* Results count */}
+      <div className="mb-4 text-sm text-gray-600">
+        Showing {localFilteredPlaces.length} of {localPlaces.length} places
+      </div>
+
       {/* Error display */}
       {error && (
         <div className="bg-red-50 p-4 rounded-lg mb-4 border border-red-200">
           <h3 className="text-red-800 font-semibold">Error</h3>
           <p className="text-red-700">{error}</p>
           <button 
-            onClick={fetchPlaces} 
+            onClick={handleRefreshData} 
             className="mt-2 text-blue-600 underline hover:text-blue-800"
           >
             Try again
@@ -391,7 +508,7 @@ const Place = ({ setPlaces, setFilteredPlaces, setHoveredPlaceId, hoveredPlaceId
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-          <p className="mt-2 text-gray-600">Loading places...</p>
+          <p className="mt-2 text-gray-600">Loading all places...</p>
         </div>
       ) : localFilteredPlaces.length === 0 ? (
         <div className="text-center mt-10 p-6 bg-gray-50 rounded-lg">

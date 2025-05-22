@@ -9,8 +9,6 @@ const AdminPlaces = () => {
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [totalPages, setTotalPages] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
   const [fetchCity, setFetchCity] = useState("");
 
   // Filter states
@@ -40,13 +38,13 @@ const AdminPlaces = () => {
 
   useEffect(() => {
     fetchPlaces();
-  }, [currentPage, filters, sortBy]);
+  }, [filters, sortBy]);
 
   const fetchPlaces = async () => {
     setLoading(true);
     try {
-      // Build query params
-      let queryParams = `page=${currentPage}`;
+      // Build query params - remove pagination parameters
+      let queryParams = `limit=1000`; // Set a high limit to get all records
       
       // Add filters to query
       if (filters.name) queryParams += `&search=${filters.name}`;
@@ -60,7 +58,7 @@ const AdminPlaces = () => {
       });
       
       let data = res.data;
-      let filteredData = data.results || data;
+      let filteredData = Array.isArray(data) ? data : (data.results || data);
       
       // Client-side filtering for price range
       if (filters.minPrice) {
@@ -95,7 +93,6 @@ const AdminPlaces = () => {
       }
       
       setPlaces(filteredData);
-      setTotalPages(data.total_pages || 1);
       setLoading(false);
     } catch (err) {
       setError("Failed to fetch places");
@@ -110,7 +107,6 @@ const AdminPlaces = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    setCurrentPage(1); // Reset to first page when filters change
   };
   
   const resetFilters = () => {
@@ -121,7 +117,6 @@ const AdminPlaces = () => {
       maxPrice: "",
       localOnly: false,
     });
-    setCurrentPage(1);
   };
   
   const handleSortChange = (e) => {
@@ -138,7 +133,7 @@ const AdminPlaces = () => {
   
       for (const type of categories) {
         const res = await axiosInstance.get(
-          `/places/?city=${fetchCity}&type=${type}&refresh=true`,
+          `/places/?city=${fetchCity}&type=${type}&refresh=true&limit=1000`,
           {
             headers: { Authorization: `Bearer ${authTokens.access}` },
           }
@@ -150,7 +145,8 @@ const AdminPlaces = () => {
   
       if (allFetched.length > 0) {
         toast.success(`Fetched ${allFetched.length} new places from OSM for ${fetchCity}`);
-        setPlaces((prev) => [...allFetched, ...prev]);
+        // Refresh the places list after fetching
+        await fetchPlaces();
       } else {
         toast.info(`No new places found for ${fetchCity}`);
       }
@@ -207,7 +203,7 @@ const AdminPlaces = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const method = editMode ? "put" : "post";
-    const url = editMode ? `/places/${formData.id}/` : "/places/";  // Changed from "/place/" to "/places/"
+    const url = editMode ? `/places/${formData.id}/` : "/places/";
 
     try {
         await axiosInstance[method](url, {
@@ -223,21 +219,13 @@ const AdminPlaces = () => {
     } catch (err) {
         toast.error("Failed to save place.", err);
     }
-};
-
-  const handlePrevPage = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
 
   return (
     <div className="p-6">
       <ToastContainer />
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Manage Places</h1>
+        <h1 className="text-2xl font-bold">Manage Places ({places.length} total)</h1>
         <button
           onClick={handleAdd}
           className="bg-green-600 text-white px-4 py-2 rounded"
@@ -416,31 +404,6 @@ const AdminPlaces = () => {
           ))}
         </div>
       )}
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-6">
-        <button
-          onClick={handlePrevPage}
-          disabled={currentPage === 1 || loading}
-          className={`px-4 py-2 rounded ${
-            currentPage === 1 || loading ? "bg-gray-300 cursor-not-allowed" : "bg-gray-500 hover:bg-gray-600"
-          } text-white`}
-        >
-          Previous
-        </button>
-        <p className="text-gray-600">
-          Page {currentPage} of {totalPages}
-        </p>
-        <button
-          onClick={handleNextPage}
-          disabled={currentPage === totalPages || loading}
-          className={`px-4 py-2 rounded ${
-            currentPage === totalPages || loading ? "bg-gray-300 cursor-not-allowed" : "bg-gray-500 hover:bg-gray-600"
-          } text-white`}
-        >
-          Next
-        </button>
-      </div>
 
       {/* Modal */}
       {showModal && (
